@@ -1,0 +1,2258 @@
+'''
+Tools and UI Widgets for Shufflez Program.
+
+v3 9/25/2020
+Restructuring RangeMatrix as a QGridLayout of ComboRect Objects
+
+v4 10/2/2020
+Restructuring RangeMatrix as a custom grid of ComboRect Objects
+'''
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+from itertools import permutations, combinations
+from PyQt5.QtCore import Qt
+from math import ceil
+
+"""RANGE MATRIX and related classes"""
+
+class RangeDisplay(QtWidgets.QWidget):
+    '''
+    Contains RangeMatrix, RangeText, and clear button.
+    '''
+    
+    sendRangesToActionBuckets = QtCore.pyqtSignal(list)  # Mouse over signal
+    sendRangesToRangeStats = QtCore.pyqtSignal(list)   # Mouse release signal
+    
+    def __init__(self):
+        super().__init__()
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        spacing = 5
+        
+        self.rangeMatrix = RangeMatrix()
+        layout.addWidget(self.rangeMatrix, Qt.AlignTop)
+        
+        self.rangeText = RangeText()
+        self.rangeText.setFixedSize(self.rangeMatrix.matrixWidth, self.rangeText.boxHeight)
+        layout.addWidget(self.rangeText, Qt.AlignCenter)
+        
+        self.clearButton = QtWidgets.QPushButton('Clear')
+        self.clearButton.setFixedWidth(55)
+        self.clearButton.setFixedHeight(25)
+        self.clearButton.clicked.connect(self.onClearClick)
+        #self.clearButton.clicked.connect(self.update)
+        layout.addWidget(self.clearButton)
+        
+        layout.setSpacing(spacing)
+        
+        self.totalHeight = self.rangeMatrix.matrixHeight + spacing * 2 + self.clearButton.height() + self.rangeText.height()
+        
+        sizepolicy = QtWidgets.QSizePolicy()
+        sizepolicy.setVerticalStretch(0)
+        sizepolicy.setHorizontalStretch(0)
+        self.setSizePolicy(sizepolicy)
+        
+        self.setLayout(layout)
+        
+        '''Attributes'''
+        self.selecting = False
+        
+        self.action = ''
+        
+        self.value = []
+        self.bluff = []
+        self.call = []
+        
+        '''Connect Signals and Slots'''
+        self.rangeMatrix.comboRectClicked.connect(self.setSelecting)
+        self.rangeMatrix.mouseOver.connect(self.comboRectMouseMove)
+        self.rangeText.enterPressed.connect(self.setRangeFromText)
+    
+    def setSelecting(self, comboRectName):
+        
+        for combo in self.rangeMatrix.matrix:
+            if combo.name == comboRectName:
+                if len(combo.value) == combo.totalCombos and self.action == 'value':
+                    self.selecting = False
+                elif len(combo.bluff) == combo.totalCombos and self.action == 'bluff':
+                    self.selecting = False
+                elif len(combo.call) == combo.totalCombos and self.action == 'call':
+                    self.selecting = False
+                else:
+                    self.selecting = True
+                break
+        self.rangeMatrix.selecting = self.selecting
+
+    def setAction(self, action):
+        self.action = action
+        self.update()
+        
+    def comboRectMouseMove(self, comboList):
+        '''
+        Slot to repsond to mouseMoveEvent
+        '''
+        for combo in comboList:
+            self.comboActionSort(combo)
+        self.update()
+        
+    def comboActionSort(self, combo):
+        '''
+        Places or removes combo from correct action Set depending on
+        if we're selecting or not and the current selected action.
+        Used by comboRectMouseMove.
+        '''
+        
+        if self.selecting:
+            for com in self.value:
+                if combo.text == com.text:
+                    self.value.remove(com)
+            for com in self.bluff:
+                if combo.text == com.text:
+                    self.bluff.remove(com)
+            for com in self.call:
+                if combo.text == com.text:
+                    self.call.remove(com)
+                
+            if self.action == 'value':   # Now place combo in correct Set
+                #self.value.add(combo)
+                self.value.append(combo)
+            elif self.action == 'bluff':
+                #self.bluff.add(combo)
+                self.bluff.append(combo)
+            elif self.action == 'call':
+                #self.call.add(combo)
+                self.call.append(combo)
+                
+        elif not self.selecting:
+            for com in self.value:
+                if combo.text == com.text:
+                    self.value.remove(com)
+            for com in self.bluff:
+                if combo.text == com.text:
+                    self.bluff.remove(com)
+            for com in self.call:
+                if combo.text == com.text:
+                    self.call.remove(com)
+    
+    def onClearClick(self):
+        '''Slot for Clear button clicked signal'''
+        """
+        self.rangeMatrix.clearGrid()
+        self.value.clear()
+        self.bluff.clear()
+        self.call.clear()"""
+        
+        if self.action == 'value':
+            self.value.clear()
+        elif self.action == 'bluff':
+            self.bluff.clear()
+        elif self.action == 'call':
+            self.call.clear()
+        else:
+            self.value.clear()
+            self.bluff.clear()
+            self.call.clear()
+            self.rangeMatrix.clearGrid()
+        
+        self.rangeText.clear()
+        
+        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call])
+        
+        self.update()
+        
+    def setRangeFromText(self, range_list):
+        '''Slot to respond to Enter pressed on RangeText.'''
+        
+        for combo in range_list:
+            '''Remove combo if it's already in an action Set'''
+            for com in self.value:
+                if combo.text == com.text:
+                    self.value.remove(com)
+                    break
+            for com in self.bluff:
+                if combo.text == com.text:
+                    self.bluff.remove(com)
+                    break
+            for com in self.call:
+                if combo.text == com.text:
+                    self.call.remove(com)
+            
+            '''Add the combo to the selected action Set'''
+            if self.action == 'value':
+                self.value.append(combo)
+            elif self.action == 'bluff':
+                self.bluff.append(combo)
+            elif self.action == 'call':
+                self.call.append(combo)
+        
+        self.update()
+    
+    def mouseReleaseEvent(self, e):
+        self.selecting = False
+        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call])
+        super().mouseReleaseEvent(e)
+    
+    def update(self):
+        
+        '''Update RangeMatrix'''
+        self.rangeMatrix.clearGrid()
+        self.rangeMatrix.setValue(self.value)
+        self.rangeMatrix.setBluff(self.bluff)
+        self.rangeMatrix.setCall(self.call)
+        
+        '''Update ActionBuckets'''
+        self.sendRangesToActionBuckets.emit([self.value, self.bluff, self.call])
+        
+        '''Update RangeText'''
+        self.rangeText.clear()
+        if self.action == 'value':
+            self.rangeText.setText(self.rangeText.rangeListToString(self.value))
+        elif self.action == 'bluff':
+            self.rangeText.setText(self.rangeText.rangeListToString(self.bluff))
+        elif self.action == 'call':
+            self.rangeText.setText(self.rangeText.rangeListToString(self.call))
+        else:
+            allActionCombos = []
+            allActionCombos.extend(self.value)
+            allActionCombos.extend(self.bluff)
+            allActionCombos.extend(self.call)
+            self.rangeText.setText(self.rangeText.rangeListToString(allActionCombos))
+        
+        super().update()
+    
+    def paintEvent(self, e):
+        '''To set breakpoint for checking current State.'''
+        pass
+
+
+class RangeMatrix(QtWidgets.QWidget):
+    '''
+    Widget that displays a 13x13 grid of hand combos and
+    displays designated ranges in different colors.
+    '''
+    
+    comboRectClicked = QtCore.pyqtSignal(str)
+    mouseOver = QtCore.pyqtSignal(list)
+    
+    def __init__(self):
+        super().__init__()
+        
+        boxLen = 30        # Length in pixels of each grid square
+        self.boxLen = boxLen
+        offset = [0, 0]   # Pixel width, length of border, if any
+        
+        self.matrixHeight = boxLen * 13 + offset[1] * 2
+        self.matrixWidth = boxLen * 13 + offset[0] * 2
+        
+        '''Consruct Grid of ComboRects'''
+        gridref = [['AA',   6], ['AKs',  4], ['AQs',  4], ['AJs',  4], ['ATs',  4], ['A9s',  4], ['A8s',  4], ['A7s',  4], ['A6s',  4], ['A5s',  4], ['A4s',  4], ['A3s',  4], ['A2s', 4], 
+                   ['AKo', 12], ['KK',   6], ['KQs',  4], ['KJs',  4], ['KTs',  4], ['K9s',  4], ['K8s',  4], ['K7s',  4], ['K6s',  4], ['K5s',  4], ['K4s',  4], ['K3s',  4], ['K2s', 4],
+                   ['AQo', 12], ['KQo', 12], ['QQ',   6], ['QJs',  4], ['QTs',  4], ['Q9s',  4], ['Q8s',  4], ['Q7s',  4], ['Q6s',  4], ['Q5s',  4], ['Q4s',  4], ['Q3s',  4], ['Q2s', 4],
+                   ['AJo', 12], ['KJo', 12], ['QJo', 12], ['JJ',   6], ['JTs',  4], ['J9s',  4], ['J8s',  4], ['J7s',  4], ['J6s',  4], ['J5s',  4], ['J4s',  4], ['J3s',  4], ['J2s', 4],
+                   ['ATo', 12], ['KTo', 12], ['QTo', 12], ['JTo', 12], ['TT',   6], ['T9s',  4], ['T8s',  4], ['T7s',  4], ['T6s',  4], ['T5s',  4], ['T4s',  4], ['T3s',  4], ['T2s', 4],
+                   ['A9o', 12], ['K9o', 12], ['Q9o', 12], ['J9o', 12], ['T9o', 12], ['99',   6], ['98s',  4], ['97s',  4], ['96s',  4], ['95s',  4], ['94s',  4], ['93s',  4], ['92s', 4],
+                   ['A8o', 12], ['K8o', 12], ['Q8o', 12], ['J8o', 12], ['T8o', 12], ['98o', 12], ['88',   6], ['87s',  4], ['86s',  4], ['85s',  4], ['84s',  4], ['83s',  4], ['82s', 4],
+                   ['A7o', 12], ['K7o', 12], ['Q7o', 12], ['J7o', 12], ['T7o', 12], ['97o', 12], ['87o', 12], ['77',   6], ['76s',  4], ['75s',  4], ['74s',  4], ['73s',  4], ['72s', 4],
+                   ['A6o', 12], ['K6o', 12], ['Q6o', 12], ['J6o', 12], ['T6o', 12], ['96o', 12], ['86o', 12], ['76o', 12], ['66',   6], ['65s',  4], ['64s',  4], ['63s',  4], ['62s', 4],
+                   ['A5o', 12], ['K5o', 12], ['Q5o', 12], ['J5o', 12], ['T5o', 12], ['95o', 12], ['85o', 12], ['75o', 12], ['65o', 12], ['55',   6], ['54s',  4], ['53s',  4], ['52s', 4],
+                   ['A4o', 12], ['K4o', 12], ['Q4o', 12], ['J4o', 12], ['T4o', 12], ['94o', 12], ['84o', 12], ['74o', 12], ['64o', 12], ['54o', 12], ['44',   6], ['43s',  4], ['42s', 4],
+                   ['A3o', 12], ['K3o', 12], ['Q3o', 12], ['J3o', 12], ['T3o', 12], ['93o', 12], ['83o', 12], ['73o', 12], ['63o', 12], ['53o', 12], ['43o', 12], ['33'  , 6], ['32s', 4],
+                   ['A2o', 12], ['K2o', 12], ['Q2o', 12], ['J2o', 12], ['T2o', 12], ['92o', 12], ['82o', 12], ['72o', 12], ['62o', 12], ['52o', 12], ['42o', 12], ['32o', 12],  ['22', 6]]
+        
+        self.matrix = self.buildGrid(boxLen, gridref, offset)
+        
+        '''RGB values for display colors.  Changable in Settings. '''
+        self.grey_pen = [190, 190, 190]
+        
+        self.suited_blank = [250, 244, 185]
+        self.suited_grey = [235, 235, 235]
+        
+        self.pocketPair_blank = [192, 233, 155]
+        self.pocketPair_grey = [225, 225, 225]
+        
+        self.offsuit_blank = [216, 237, 255]
+        self.offsuit_grey = [225, 225, 225]
+        
+        self.valueBrush = [255, 77, 77]
+        self.bluffBrush = [255, 166, 166]
+        self.callBrush = [103, 178, 45]
+        
+        '''Tracks if user is clicking and dragging to select comboRects'''
+        self.selecting = False
+        
+        '''QtWidget Settings'''
+        self.setMinimumSize(boxLen * 13 + 1 + offset[0] * 2, boxLen * 13 + 1 + offset[1] * 2)
+        
+    def buildGrid(self, boxLen, gridref, offset):
+        '''
+        Creates list of combo Rects that make up the 13 x 13 range matrix.
+        Primarily used during __init__ to create Grid.
+        If Signals and Slots need to be added to each ComboRect, it's done here.
+        '''
+        
+        matrix = []
+        
+        row = 0
+        col = 0
+        
+        for combo in gridref:
+            rect = ComboRect(boxLen * col + offset[0],
+                             boxLen * row + offset[1],
+                             boxLen, boxLen, combo[1], combo[0])
+            matrix.append(rect)
+            col += 1
+            if col % 13 == 0:
+                row += 1
+                col = 0
+        
+        return matrix
+    
+    def clearGrid(self):
+        '''Clears each ComboRect's value, bluff, and call Sets.'''
+        
+        for combo in self.matrix:
+            combo.value.clear()
+            combo.bluff.clear()
+            combo.call.clear()
+        self.update()
+    
+    def setValue(self, valueCombos):
+        '''
+        Places each combo into the correct ComboRect's value Set.
+        '''
+        
+        for combo in valueCombos:
+            for rect in self.matrix:
+                if combo.comboRect == rect.name:
+                    rect.value.add(combo)
+                    break
+    
+    def setBluff(self, bluffCombos):
+        '''
+        Places each combo into the correct ComboRect's bluff Set.
+        '''
+        
+        for combo in bluffCombos:
+            for rect in self.matrix:
+                if combo.comboRect == rect.name:
+                    rect.bluff.add(combo)
+                    break
+    
+    def setCall(self, callCombos):
+        '''
+        Places each combo into the correct ComboRect's call Set.
+        '''
+        
+        for combo in callCombos:
+            for rect in self.matrix:
+                if combo.comboRect == rect.name:
+                    rect.call.add(combo)
+                    break
+    
+    def mousePressEvent(self, e):
+        
+        '''Determine which ComboRect was clicked and emit the name of it'''
+        for combo in self.matrix:
+            if combo.rect.contains(e.x(), e.y()):
+                self.comboRectClicked.emit(combo.name)
+                self.mouseOver.emit(combo.comboList)
+                break
+    
+    def mouseMoveEvent(self, e):
+        
+        '''Emit list of combos of moused over ComboRect'''
+        for combo in self.matrix:
+            if combo.rect.contains(e.x(), e.y()):
+                self.mouseOver.emit(combo.comboList)
+                break
+    
+    def paintEvent(self, e):
+        
+        painter = QtGui.QPainter(self)
+        black_pen = QtGui.QPen(Qt.black, 1, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        grey_pen = QtGui.QPen(Qt.gray, 1, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        grey_pen.setColor(QtGui.QColor(self.grey_pen[0], self.grey_pen[1], self.grey_pen[2]))
+        painter.setPen(black_pen)
+        
+        suited_blank = QtGui.QBrush()
+        suited_blank.setColor(QtGui.QColor(self.suited_blank[0], self.suited_blank[1], self.suited_blank[2]))
+        suited_blank.setStyle(Qt.SolidPattern)
+        
+        suited_grey = QtGui.QBrush()
+        suited_grey.setColor(QtGui.QColor(self.suited_grey[0], self.suited_grey[1], self.suited_grey[2]))
+        suited_grey.setStyle(Qt.SolidPattern)
+        
+        pocketPair_blank = QtGui.QBrush()
+        pocketPair_blank.setColor(QtGui.QColor(self.pocketPair_blank[0], self.pocketPair_blank[1], self.pocketPair_blank[2]))
+        pocketPair_blank.setStyle(Qt.SolidPattern)
+        
+        pocketPair_grey = QtGui.QBrush()
+        pocketPair_grey.setColor(QtGui.QColor(self.pocketPair_grey[0], self.pocketPair_grey[1], self.pocketPair_grey[2]))
+        pocketPair_grey.setStyle(Qt.SolidPattern)
+        
+        offsuit_blank = QtGui.QBrush()
+        offsuit_blank.setColor(QtGui.QColor(self.offsuit_blank[0], self.offsuit_blank[1], self.offsuit_blank[2]))
+        offsuit_blank.setStyle(Qt.SolidPattern)
+        
+        offsuit_grey = QtGui.QBrush()
+        offsuit_grey.setColor(QtGui.QColor(self.offsuit_grey[0], self.offsuit_grey[1], self.offsuit_grey[2]))
+        offsuit_grey.setStyle(Qt.SolidPattern)
+        
+        valueBrush = QtGui.QBrush()
+        valueBrush.setColor(QtGui.QColor(self.valueBrush[0], self.valueBrush[1], self.valueBrush[2]))
+        valueBrush.setStyle(Qt.SolidPattern)
+        
+        bluffBrush = QtGui.QBrush()
+        bluffBrush.setColor(QtGui.QColor(self.bluffBrush[0], self.bluffBrush[1], self.bluffBrush[2]))
+        bluffBrush.setStyle(Qt.SolidPattern)
+        
+        callBrush = QtGui.QBrush()
+        callBrush.setColor(QtGui.QColor(self.callBrush[0], self.callBrush[1], self.callBrush[2]))
+        callBrush.setStyle(Qt.SolidPattern)
+        
+        for combo in self.matrix:
+            
+            '''Fill with base color'''
+            if combo.selectable:
+                if combo.totalCombos == 4:
+                    painter.fillRect(combo.rect, suited_blank)
+                elif combo.totalCombos == 6:
+                    painter.fillRect(combo.rect, pocketPair_blank)
+                elif combo.totalCombos == 12:
+                    painter.fillRect(combo.rect, offsuit_blank)
+            else:
+                if combo.totalCombos == 4:
+                    painter.fillRect(combo.rect, suited_grey)
+                elif combo.totalCombos == 6:
+                    painter.fillRect(combo.rect, pocketPair_grey)
+                elif combo.totalCombos == 12:
+                    painter.fillRect(combo.rect, offsuit_grey)
+                    
+            '''Fill proportionally for combos in each action Set'''
+            div = combo.boxLen / combo.totalCombos
+            newX = combo.rect.x()
+            newY = combo.rect.y() + combo.boxLen
+            newWidth = combo.boxLen
+            newLen = 0         
+            
+            for com in combo.call:
+                newY -= div
+                newLen += div
+            painter.fillRect(ceil(newX), ceil(newY), newWidth, newLen, callBrush)
+            newLen = 0
+            
+            for com in combo.bluff:
+                newY -= div
+                newLen += div
+            painter.fillRect(ceil(newX), ceil(newY), newWidth, newLen, bluffBrush)
+            newLen = 0
+            
+            for com in combo.value:
+                newY -= div
+                newLen += div
+            painter.fillRect(ceil(newX), ceil(newY), newWidth, newLen, valueBrush)
+            
+            '''Outline each ComboRect'''
+            if not combo.selectable:
+                painter.setPen(grey_pen)
+            painter.drawRect(combo.rect)
+            
+            '''Label each combo Rect'''
+            painter.drawText(combo.rect, Qt.AlignCenter, combo.name)
+
+
+class ComboRect(QtWidgets.QWidget):
+    '''
+    Widget each combo in a range matrix.
+    Used by RangeMatrix.
+    '''
+    
+    def __init__(self, x, y, width, height, totalCombos, name):
+        super().__init__()
+        
+        '''Rect for drawing in paintEvent'''
+        self.boxLen = height
+        self.rect = QtCore.QRect(x, y, width, height)
+        
+        '''Attributes'''
+        self.totalCombos = totalCombos
+        self.name = name
+        
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                      "9", "T", "J", "Q", "K", "A"]
+        
+        self.rankA = rank_value.index(name[0])
+        self.rankB = rank_value.index(name[1])
+        
+        self.comboList = self.buildCombos()
+        
+        '''Can the user click it?  Is it part of the current selectable range?'''
+        self.selectable = True
+        
+        '''Used to determine if we are selecing or deselecting when clicked.'''
+        self.selected = False
+        
+        '''Set for each action for displaying correct amount of grid square.'''
+        self.value = set()
+        self.bluff = set()
+        self.call = set()
+    
+    def buildCombos(self):
+        '''
+        Creates a list of Combo Objects that belong to the ComboRect.
+        '''
+        combos = []
+        
+        pp_combos = [[0, 2], [0, 1], [0, 3], [2, 1], [2, 3], [1, 3]]
+        
+        suited_combos = [[0, 0], [1, 1], [2, 2], [3, 3]]
+        
+        offsuit_combos = [[0, 2], [0, 1], [0, 3], [2, 1], [2, 3], [1, 3],
+                          [2, 0], [1, 0], [1, 2], [3, 0], [3, 2], [3, 1]]
+        
+        if len(self.name) == 2:
+            '''pocket pairs'''
+            for i in pp_combos:
+                combos.append(Combo([self.rankA, i[0]], [self.rankB, i[1]]))
+        
+        elif self.name[-1] == 's':
+            '''suited combos'''
+            for i in suited_combos:
+                combos.append(Combo([self.rankA, i[0]], [self.rankB, i[1]]))
+        
+        elif self.name[-1] == 'o':
+            for i in offsuit_combos:
+                combos.append(Combo([self.rankA, i[0]], [self.rankB, i[1]]))
+        
+        return combos
+    
+
+class RangeText(QtWidgets.QTextEdit):
+    '''Basic text box for range as a string input/output. Needed to override keypress event.'''
+    
+    enterPressed = QtCore.pyqtSignal(list)
+    
+    def __init__(self):
+        super().__init__()
+        
+        sizepolicy = QtWidgets.QSizePolicy()
+        sizepolicy.setVerticalStretch(0)
+        sizepolicy.setHorizontalStretch(0)
+        self.setSizePolicy(sizepolicy)
+        
+        self.boxHeight = 50
+        
+        self.rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                      "9", "T", "J", "Q", "K", "A"]
+        self.suit_value = ['h', 'd', 'c', 's']
+        
+        self.text = ''
+    
+    def pocket_pair_convert(self, pp_range, combo_list):
+        '''Appends to combo_list a Combo object for every combo in
+        a pocket pair range.
+        Used by rangeToList'''
+        
+        '''checks if listed as XX+ and sets upper limit as Aces (12)'''
+        if pp_range[-1] == "+":
+            
+            upper_limit = 12
+            lower_limit = self.rank_value.index(pp_range[0])
+        
+        else:
+            limit1 = self.rank_value.index(pp_range[0])   # hand rank of first listing
+            limit2 = self.rank_value.index(pp_range[-1])  # hand rank of second listing
+            
+            upper_limit = max(limit1, limit2)
+            lower_limit = min(limit1, limit2)
+        
+        '''Iterate through each rank in the range and create all six Combo objects'''
+        
+        pp_combos = [[0, 2], [0, 1], [0, 3], [2, 1], [2, 3], [1, 3]]
+        
+        while upper_limit >= lower_limit:
+            
+            for combo in pp_combos:
+                combo_list.append(Combo([upper_limit, combo[0]], [upper_limit, combo[1]]))
+            
+            upper_limit -= 1
+    
+    def suited_convert(self, suited_range, combo_list):
+        '''Appends to combo_list a Combo object for every combo
+        in a suited combo range
+        Used by rangeToList'''
+        
+        if suited_range[-1] == "+":
+            '''checks if listed as + and sets upper limit'''
+            
+            upper_limit = self.rank_value.index(suited_range[0]) - 1
+            lower_limit = self.rank_value.index(suited_range[1])
+            
+        elif len(suited_range) == 3:
+            '''Individual suited listing'''
+            
+            upper_limit = self.rank_value.index(suited_range[1])
+            lower_limit = self.rank_value.index(suited_range[1])      
+                
+        else:
+            '''These should be suited ranges'''
+            
+            limit1 = self.rank_value.index(suited_range[1])   # hand rank of first listing
+            limit2 = self.rank_value.index(suited_range[-2])  # hand rank of second listing
+            
+            upper_limit = max(limit1, limit2)
+            lower_limit = min(limit1, limit2)
+        
+        while upper_limit >= lower_limit:
+            '''Go through each card rank in range and create the four suited combos'''
+                        
+            card1 = self.rank_value.index(suited_range[0])
+            card2 = upper_limit
+            
+            suited_combos = [[0, 0], [1, 1], [2, 2], [3, 3]]
+            
+            for combo in suited_combos:
+                combo_list.append(Combo([card1, combo[0]], [card2, combo[1]]))
+    
+            upper_limit -= 1
+            
+    def offsuit_convert(self, offsuit_range, combo_list):
+        '''Appends to combo_list a Combo object for every combo
+        in a offsuit combo range
+        Used by rangeToList'''
+        
+        if offsuit_range[-1] == "+":
+            '''checks if listed as + and sets upper limit'''
+            
+            upper_limit = self.rank_value.index(offsuit_range[0]) - 1
+            lower_limit = self.rank_value.index(offsuit_range[1])
+            
+        elif len(offsuit_range) == 3:
+            '''Individual suited listing'''
+            
+            upper_limit = self.rank_value.index(offsuit_range[1])
+            lower_limit = self.rank_value.index(offsuit_range[1])      
+                
+        else:
+            '''These should be suited ranges'''
+            
+            limit1 = self.rank_value.index(offsuit_range[1])   # hand rank of first listing
+            limit2 = self.rank_value.index(offsuit_range[-2])  # hand rank of second listing
+            
+            upper_limit = max(limit1, limit2)
+            lower_limit = min(limit1, limit2)
+        
+        while upper_limit >= lower_limit:
+            '''Go through each card rank in range and create the four suited combos'''
+                        
+            card1 = self.rank_value.index(offsuit_range[0])
+            card2 = upper_limit
+            
+            offsuit_combos = [[0, 2], [0, 1], [0, 3], [2, 1], [2, 3], [1, 3],
+                              [2, 0], [1, 0], [1, 2], [3, 0], [3, 2], [3, 1]]
+            
+            for combo in offsuit_combos:
+                combo_list.append(Combo([card1, combo[0]], [card2, combo[1]]))
+    
+            upper_limit -= 1
+    
+    def single_combo_convert(self, combo, combo_list):
+        '''Converts a single combo string into Combo Object.'''
+        
+        card1 = [self.rank_value.index(combo[0]), self.suit_value.index(combo[1])]
+        card2 = [self.rank_value.index(combo[2]), self.suit_value.index(combo[3])]
+        
+        combo_list.append(Combo(card1, card2))
+
+    def rangeToList(self):
+        '''
+        Converts user input range from text to a list of Combo objects.
+        '''
+        
+        combo_list = []
+        
+        '''Main Funcion'''
+        try:
+            
+            '''Remove commas and spaces and turn into a list'''
+            input_range = self.text.split(',')
+            working_range = []
+            
+            for i in input_range:
+                if i[0] == " ":
+                    working_range.append(i[1:])
+                else:
+                    working_range.append(i)
+            
+            '''Iterate through working_range'''
+            for i in working_range:
+                
+                if i[0] == i[1]:
+                    '''Checks if pocket pair'''
+                    self.pocket_pair_convert(i, combo_list)
+                
+                elif "o" in i:
+                    '''Checks if offsuit item'''
+                    self.offsuit_convert(i, combo_list)
+                
+                elif i[2] == "s":
+                    '''Checks if suited item'''
+                    self.suited_convert(i, combo_list)
+                
+                else:
+                    '''Anything left should be individual combos'''
+                    self.single_combo_convert(i, combo_list)
+            
+            return combo_list
+            
+        except:
+            print('rangeToList Invalid input')
+    
+    def rangeListToString(self, InputComboList):
+        '''
+        Converts a list of Combo Objects into the string representing that range.
+        '''
+        
+        '''List representing RangeMatrix.matrix'''
+        comboCounts = []
+        for i in range(169):
+            comboCounts.append([])      
+        
+        '''Place each combo object in its correct comboCount location'''
+        for combo in InputComboList:
+            comboCounts[combo.gridIndex].append(combo)
+            
+        rangeText = ''
+        
+        '''Build Pocket Pair text'''
+        pp = ''        
+        i = 0    # Tracks progress through comboCounts
+        high = None
+        low = None
+        singleCombos = []
+        
+        while i <= 169:
+            
+            '''Find high value of pocket pair range'''
+            for n in range(i, 169, 14):
+                if len(comboCounts[n]) == 6:
+                    '''All 6 pocket pair combos are present'''
+                    high = comboCounts[n][0].cardA[0]
+                    low = comboCounts[n][0].cardA[0]
+                    i = n
+                    i += 14
+                    break
+                elif len(comboCounts[n]) > 0 and len(comboCounts[n]) < 6:
+                    '''Less than 6 pocket pair combos means they are listed as individual combos'''
+                    for singleCombo in comboCounts[n]:
+                        singleCombos.append(singleCombo.text)
+            else:
+                break
+            if i > 168 and high == 0:
+                rangeText += '22, '
+                break
+            
+            '''Find low value of pocket pair range'''
+            for n in range(i, 169, 14):
+                if len(comboCounts[n]) == 6:
+                    '''All 6 pocket pair combos are present'''
+                    low = comboCounts[n][0].cardA[0]
+                    i += 14
+                    if low == 0:
+                        '''all six combos of 22 will be lowest possible low value'''
+                        break
+                else:
+                    break
+                
+            
+            '''Convert rank values to text, format it, and add to string output'''
+            highText = self.rank_value[high] * 2
+            lowText = self.rank_value[low] * 2
+            
+            if highText == lowText:
+                pp += highText + ', '
+            elif highText == 'AA':
+                pp += lowText + '+, '
+            else:
+                pp += highText + '-' + lowText + ', '
+            
+            rangeText += pp
+            
+            '''Increment and repeat to find next pocket pair range'''
+            i += 14
+            high = None
+            low = None
+            highText = ''
+            lowText = ''
+            pp = ''
+        
+        '''Append single combos to string output'''
+        for combo in singleCombos:
+            rangeText += combo + ', '
+            
+        '''Reset all Trackers'''
+        i = 0
+        high = None
+        low = None
+        singleCombos = []
+        suitedText = ''
+        
+        '''Build Suited Combo Text'''
+        
+        rowHighs = ['AKs', 'KQs', 'QJs', 'JTs', 'T9s', '98s', '87s', '76s', '65s', '54s', '43s', '32s']
+        rowHighIdx = 0
+        
+        while i <= 12:                       # Loop for each row
+            begin = (13 * i) + (1 + i)       # starting index of comboCounts of current row
+            end = 13 * (i + 1)               # ending index of comboCounts of current row
+            for n in range(begin, end, 1):   # Loop for current row
+                
+                '''Find the High and/or Low value of suited range'''
+                if len(comboCounts[n]) == 4 and high == None:
+                    '''All 4 suited combos are present'''
+                    high = comboCounts[n][0].comboRect
+                    low = comboCounts[n][0].comboRect
+                elif len(comboCounts[n]) == 4:
+                    '''All 4 suited combos present in next ComboRect.
+                    This will loop and set a new low value each time.'''
+                    low = comboCounts[n][0].comboRect
+                else:
+                    '''Suited range has ended; convert to text'''
+                    if len(comboCounts[n]) > 0:
+                        for singleCombo in comboCounts[n]:
+                            singleCombos.append(singleCombo)
+                    if high == low and high != None:
+                        suitedText += high + ', '
+                    elif high == rowHighs[rowHighIdx]:
+                        suitedText += low + '+, '
+                    elif high != None:
+                        suitedText += high + '-' + low + ', '
+                    high = None
+                    low = None
+                if n + 1 == end and high != None:
+                    '''This catches if last combo in row is selected.'''
+                    if high == low:
+                        suitedText += high + ', '
+                    else:
+                        if high == rowHighs[rowHighIdx]:
+                            suitedText += low + '+, '
+                        else:
+                            suitedText += high + '-' + low + ', '
+            rangeText += suitedText
+            suitedText = ''
+            high = None
+            low = None
+            rowHighIdx += 1
+            i += 1
+        
+        '''Append single combos to string output'''
+        for combo in singleCombos:
+            rangeText += combo + ', '
+        
+        '''Reset all Trackers'''
+        i = 0
+        high = None
+        low = None
+        singleCombos = []
+        offsuitText = ''
+        
+        '''Build Offsuit Combo Text'''
+        # i is the column being checked.  AKo is 0
+        rowHighs = ['AKo', 'KQo', 'QJo', 'JTo', 'T9o', '98o', '87o', '76o', '65o', '54o', '43o', '32o']
+        rowHighIdx = 0        
+        
+        while i <= 12:                         # Loop for each column
+            begin = (i + 1) * 13 + i
+            end = 157 + i
+            for n in range(begin, end, 13):    # Loop for currernt column
+                '''Find High and/or low of offsuit range'''
+                
+                if len(comboCounts[n]) == 12 and high == None:
+                    '''All 12 offsuit combos are present'''
+                    high = comboCounts[n][0].comboRect
+                    low = comboCounts[n][0].comboRect
+                elif len(comboCounts[n]) == 12:
+                    '''All 12 offsuit combos present in next ComboRect.
+                    This will loop and set a new low value each time.'''
+                    low = comboCounts[n][0].comboRect
+                else:
+                    '''offsuit range has ended; convert to text'''
+                    if len(comboCounts[n]) > 0:
+                        for singleCombo in comboCounts[n]:
+                            singleCombos.append(singleCombo)
+                    if high == low and high != None:
+                        offsuitText += high + ', '
+                    elif high == rowHighs[rowHighIdx]:
+                        offsuitText += low + '+, '
+                    elif high != None:
+                        offsuitText += high + '-' + low + ', '
+                    high = None
+                    low = None
+                if n + 1 == end and high != None:
+                    '''This catches if last combo in row is selected.'''
+                    if high == low:
+                        offsuitText += high + ', '
+                    else:
+                        if high == rowHighs[rowHighIdx]:
+                            offsuitText += low + '+, '
+                        else:
+                            offsuitText += high + '-' + low + ', '
+            rangeText += offsuitText
+            offsuitText = ''
+            high = None
+            low = None
+            rowHighIdx += 1
+            i += 1
+        
+        rangeText = rangeText[:-2]  # cut off the last ', '
+        return rangeText
+    
+    def keyPressEvent(self, e):
+        if e.key() == 16777220:
+            self.text = self.toPlainText()
+            range_list = self.rangeToList()
+            self.enterPressed.emit(range_list)
+        else:
+            super().keyPressEvent(e)
+
+
+"""RANGE STATS DISPLAY and related classes"""
+           
+class RangeStatsDisplay(QtWidgets.QScrollArea):
+    '''
+    QScrollArea Widget that displays saved preflop ranges or
+    post flop made hand percentages.
+    '''
+    
+    def __init__(self):
+        super().__init__()
+        
+        
+class RangeStats(QtWidgets.QWidget):
+    '''
+    Widget that organizes and displays the StatsRow Widgets.
+    Primary displayed widget of RangeStatsDisplay (QScrollArea).
+    '''
+    
+    def __init__(self):
+        super().__init__()
+        
+        self.allRows = []
+        
+        self.combos = []
+        self.board = []
+        
+        self.value = []
+        self.bluff = []
+        self.call = []
+    
+    def receiveBoard(self, boardCards):
+        '''Slot for BoardDisplay sendBoardCards signal'''
+        self.board = boardCards
+        self.update()
+    
+    def receiveCombos(self, combos):
+        '''Slot for RangeDisplay sendRangesToRangeStats signal'''
+        self.value = combos[0]
+        self.bluff = combos[1]
+        self.call = combos[2]
+        
+        combined_combos = []
+        for combo_list in combos:
+            combined_combos.extend(combo_list)
+        self.combos = combined_combos
+        self.update()
+        
+    @staticmethod
+    def calc(combos, board):
+        '''
+        Main Made Hand Stats Sovler.
+        Returns a list of StatsRow Objects.
+        combos is a list or set of combo objects.
+        board is a list or set of lists which represent a card as
+        [rank, suit].  rank is 0-12, suit is 0-3
+        0 = h, 1 = d, 2 = c, 3 = s
+        '''
+        
+        unBlockedCombos = RangeStats.removeBlockedCombos(combos, board)
+        total_combos = len(unBlockedCombos)
+        
+        made_hands = {}
+        made_hands['Str Flush'] = []
+        made_hands['Four of a Kind'] = []
+        made_hands['Full House'] = []
+        made_hands['Flush'] = []
+        
+        flush = {}
+        flush['Nut Flush'] = []
+        flush['Second Nut Flush'] = []
+        flush['Third Nut Flush'] = []
+        flush['Weak Flush'] = []
+        
+        '''Check board for made hands to disallow lesser hand types from being checked'''
+        
+        '''Iterate through each made hand type in order from highest to lowest.
+        We want each combo to be assigned to only ONE of these main made hand types.
+        If the hand type has secondary StatsRows (i.e. 2nd nut flush, TP weak kicker),
+        they are assigned here.'''
+        for combo in unBlockedCombos:
+            
+            '''Straight Flush'''
+            if RangeStats.str_flush_check(combo, board):
+                made_hands['Str Flush'].append(combo)
+                continue
+            if RangeStats.board_str_flush_check(board):
+                continue
+            
+            '''Quads'''    
+            if RangeStats.quads_check(combo, board):
+                made_hands['Four of a Kind'].append(combo)
+                continue
+            if RangeStats.board_quads_check(board):
+                continue
+            
+            '''Full House'''
+            if RangeStats.full_house_check(combo, board):
+                made_hands['Full House'].append(combo)
+                continue
+            if RangeStats.board_full_house_check(board):
+                continue
+            
+            '''Flush'''
+            if RangeStats.flush_check(combo, board):
+                made_hands['Flush'].append(combo)
+                '''Assign combo to type of flush'''
+                if RangeStats.nut_flush_check(combo, board):
+                    flush['Nut Flush'].append(combo)
+                
+            if RangeStats.board_flush_check(board):
+                continue
+                
+        
+        
+        '''Iterate through each drawing or other type of hand.
+        Each combo could belong to more than one of these.'''
+        
+        
+        
+        '''Construct a list of StatsRow objects for each dict of made hands'''
+        flush_total_combos = len(made_hands['Flush'])
+        if flush_total_combos > 0:
+            flush_stats = RangeStats.dictToStatsRows(flush, flush_total_combos)
+            made_hands['Flush'].append(flush_stats)        
+        
+        finalStats = RangeStats.dictToStatsRows(made_hands, total_combos)
+        
+        #for hand_type in made_hands:
+            #if len(made_hands[hand_type]) > 0:
+                #hand_name = hand_type
+                #hand_combos = made_hands[hand_type]
+                #finalStats.append(StatsRow(hand_name, hand_combos, total_combos))
+         
+        return finalStats
+    
+    @staticmethod
+    def dictToStatsRows(made_hands, total_combos):
+        '''made_hands parameter is a dictionary of made hands where
+        the key is a string of the made hand type name, and the value is a list
+        of combo objects that belong to that made hand type.
+        Used by RangeStats.calc() to construct lists of StatsRow objects.'''
+        
+        stats_row_list = []
+        tot_comb = total_combos
+        
+        for hand_type in made_hands:
+            if len(made_hands[hand_type]) > 0:
+                secondary_rows = []
+                if isinstance(made_hands[hand_type][-1], list):
+                    secondary_rows = made_hands[hand_type][-1]
+                    tot_comb -= 1
+                hand_name = hand_type
+                hand_combos = made_hands[hand_type]
+                stats_row_list.append(StatsRow(hand_name, hand_combos, tot_comb, secondary_rows))
+        
+        return stats_row_list
+    
+    @staticmethod
+    def removeBlockedCombos(combos, board):
+        '''
+        Removes from combos parameter any Combo objects that are not
+        possible given the board.  Returns a list of Combo objects.
+        '''
+        
+        unblockedCombos = []
+        
+        for combo in combos:
+            if combo.cardA not in board and combo.cardB not in board:
+                unblockedCombos.append(combo)
+        
+        return unblockedCombos
+    
+    @staticmethod
+    def five_card_hist(combos):
+        '''
+        Returns a histogram of card ranks as a list. combos parameter is a list
+        [rank, suit] lists.
+        Returned List is sorted by highest numbe of repeating rank to lowest
+        regardless of the value of the ranks.
+        i.e. [4, 1] or [3, 2] or [3, 1, 1] or [1, 1, 1, 1, 1]
+        Used for quickly determining made hand type and/or if a 
+        made hand is present.
+        combos parameter is a list of cards in list form.  i.e. [10, 2]
+        '''
+        
+        hist = {}
+        for combo in combos:
+            if combo[0] in hist:
+                hist[combo[0]] += 1
+            else:
+                hist[combo[0]] = 1
+        
+        hist_list = []
+        for i in hist:
+            hist_list.append(hist.get(i))
+        
+        hist_list = sorted(hist_list, reverse = True)
+        
+        return hist_list
+    
+    @staticmethod
+    def board_str_flush_check(board):
+        '''Returns true if five cards in board parameter make
+        a straight flush'''
+        
+        if RangeStats.five_card_hist(board) != [1, 1, 1, 1, 1]:
+            return False
+        
+        test_board = sorted(board, key=lambda card: card[0], reverse=True)
+        
+        '''Add wheen ace if needed'''
+        if test_board[0][0] == 12:
+            test_board.append([-1, test_board[0][1]])        
+            
+        ci = 0
+        
+        while len(test_board) - ci >= 5:
+        
+            '''Check if all stuits are equal'''
+            suits = [test_board[ci][1], test_board[ci + 1][1], test_board[ci + 2][1],
+                     test_board[ci + 3][1], test_board[ci + 4][1]]
+            
+            if suits[1:] == suits[:-1]:
+                if test_board[ci][0] - test_board[ci + 4][0] == 4:
+                    return True
+            ci +=1
+        
+        return False
+        
+    @staticmethod
+    def str_flush_check(combo, board):
+        '''Returns True if at least one hold card is used to make a straight flush.
+        Hole card used must be higher than a straight flush on the board (if one is present).
+        combo is a Combo object.  board is a list of [rank, suit] lists.'''
+        
+        test_combo = [combo.cardA, combo.cardB]
+        
+        '''Add wheel Ace if ace(s) are present.'''
+        for card in test_combo:
+            if card[0] == 12:
+                test_combo.append([-1, card[1]])
+        
+        '''Check for Straight Flush on the board.'''
+        board_str_flush_high_rank = 0
+        
+        if len(board) == 5:
+            
+            '''Sort from highest rank to lowest'''
+            test_board = sorted(board, key=lambda card: card[0], reverse=True)
+            
+            '''Add wheel Ace if needed'''
+            if test_board[0][0] == 12:
+                test_board.append([-1, test_board[0][1]])
+            
+            '''Check if all suits are equal'''
+            for card in test_board:
+                '''all() interperates 0 as false, so convert h (0 value) to 4'''
+                if card[1] == 0:
+                    card[1] = 4
+            if all(test_board[1]):
+                
+                ci = 0  # card index
+                
+                while len(test_board) - ci >= 5:
+                    if test_board[ci][0] - test_board[ci + 4][0] == 4:
+                        '''straight flush on board found'''
+                        board_str_flush_high_rank = test_board[ci][0]
+                        break
+                    ci += 1
+            for card in test_board:
+                '''convert h back to 0'''
+                if card[1] == 4:
+                    card[1] = 0
+        
+        '''Combine combo cards and board cards'''
+        test_board = board.copy()
+        for card in test_combo:
+            test_board.append(card)
+        
+        '''Assign each card in test_board to correct suit list.
+        Index of suits_list is equal to its suit.
+        0 = h, 1 = d, 2 = c, 3 = s'''
+        suits_list = [[], [], [], []]
+        for card in test_board:
+            suits_list[card[1]].append(card)
+        
+        '''Check for 5 or more of a single suit'''
+        for suit in suits_list:
+            if len(suit) >= 5:
+                suit_sort = sorted(suit, key=lambda card: card[0], reverse=True)
+                
+                ci = 0  # card index
+                while len(suit) - ci >= 5:
+                    five_card_test = [suit_sort[ci], suit_sort[ci + 1], suit_sort[ci + 2],
+                                      suit_sort[ci + 3], suit_sort[ci + 4]]
+                    if five_card_test[0][0] - five_card_test[4][0] == 4 and five_card_test[0][0] > board_str_flush_high_rank:
+                        '''Straight Flush Found; check if hole card used'''
+                        for card in test_combo:
+                            if card in five_card_test:
+                                return True
+                    
+                    ci += 1
+        return False
+    
+    @staticmethod
+    def board_quads_check(board):
+        '''Returns True if quads are present on the board.'''
+        
+        if 4 in RangeStats.five_card_hist(board):
+            return True
+        else:
+            return False
+    
+    @staticmethod
+    def quads_check(combo, board):
+        '''Returns true if at least one hole card is used to
+        make four of a kind.'''
+        
+        '''Check for Quads on the board'''
+        if len(board) >= 4:
+            board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+            
+            ci = 0  # card index
+            
+            while len(board_sorted) - ci >= 4:
+                four_card_test = [board_sorted[ci][0], board_sorted[ci + 1][0], board_sorted[ci + 2][0],
+                                  board_sorted[ci + 3][0]]
+                '''Check if all same rank'''
+                if four_card_test[1:] == four_card_test[:-1]:
+                    return False
+                
+                ci += 1
+        
+        '''Combine combo and board, and sort'''
+        test_board = board.copy()
+        test_board.append(combo.cardA)
+        test_board.append(combo.cardB)
+        
+        test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+        
+        '''Check for Quads in entire card list'''
+        
+        ci = 0
+        
+        while len(test_board) - ci >= 4:
+            four_card_test = [test_board[ci][0], test_board[ci + 1][0], test_board[ci + 2][0],
+                              test_board[ci + 3][0]]
+            if four_card_test[1:] == four_card_test[:-1]:
+                return True
+            ci += 1
+            
+        return False
+    
+    @staticmethod
+    def board_full_house_check(board):
+        '''Returns True if a full house is present on the board.'''
+        
+        if RangeStats.five_card_hist(board) == [3, 2]:
+            return True
+        else:
+            return False
+    
+    @staticmethod
+    def full_house_check(combo, board):
+        '''Returns True if at least one hole card is used to make a full house,
+        or improve a full house on the board.'''
+        
+        '''Check for at least one pair.  If every card rank is different,
+        no full house is possible.'''
+        board_check = RangeStats.five_card_hist(board)
+        for i in board_check:
+            if i >= 2:
+                break
+        else:
+            return False
+        
+        '''Check if full house on board, make note of ranks of trips and pair'''
+        trips_rank, pair_rank = None, None
+        
+        if RangeStats.board_full_house_check(board):
+            board_sort = sorted(board, key=lambda card: card[0], reverse=True)
+            if board_sort[2][0] > board_sort[3][0]:
+                trips_rank, pair_rank = board_sort[0][0], board_sort[-1][0]
+            else:
+                trips_rank, pair_rank = board_sort[-1][0], board_sort[0][0]
+
+        '''List for checking if hole card used'''
+        test_combo = [combo.cardA, combo.cardB]
+        
+        '''Combine combo with board'''
+        test_board = board.copy()
+        test_board.append(combo.cardA)
+        test_board.append(combo.cardB)
+        
+        test_board = combinations(test_board, 5)
+        
+        '''Test each combination of five cards for a full house'''
+        for i in list(test_board):
+            if RangeStats.five_card_hist(i) == [3, 2]:
+                for card in test_combo:
+                    if card in i:
+                        '''Check that either trips or pair is higher than board trips or pair'''
+                        if trips_rank == None:
+                            return True
+                        else:
+                            i_sorted = sorted(i, key=lambda card: card[0], reverse=True)
+                            if i_sorted[2][0] > i_sorted[3][0]:
+                                i_trips_rank, i_pair_rank = i_sorted[0][0], i_sorted[-1][0]
+                            else:
+                                i_trips_rank, i_pair_rank = i_sorted[-1][0], i_sorted[0][0]
+                            if i_trips_rank == trips_rank and i_pair_rank > pair_rank:
+                                return True
+                            elif i_trips_rank > trips_rank:
+                                return True
+        return False
+    
+    @staticmethod
+    def board_flush_check(board):
+        '''Returns True if a flush is on the board'''
+        
+        if RangeStats.five_card_hist(board) == [1, 1, 1, 1, 1]:
+            suits = [board[0][1], board[1][1], board[2][1],
+                     board[3][1], board[4][1]]
+            if suits[1:] == suits[:-1]:
+                return True
+        return False
+    
+    @staticmethod
+    def flush_check(combo, board):
+        '''Returns True if at least one hole card is used to make a flush, or
+        improve a flush on the board'''
+        
+        test_combo = [combo.cardA, combo.cardB]
+        
+        '''Check for flush on board'''
+        board_flush_low_card = -1
+        if RangeStats.board_flush_check(board):
+            board_flush_low_card = min(board[0][0], board[1][0], board[2][0],
+                                        board[3][0], board[4][0])
+        
+        '''Combine combo with board cards'''
+        test_board = board.copy()
+        test_board.append(combo.cardA)
+        test_board.append(combo.cardB)
+        
+        '''Sort by suit'''
+        test_board = sorted(test_board, key=lambda card: card[1])
+        
+        '''Check every group of five cards'''
+        ci = 0
+        
+        while len(test_board) - ci >= 5:
+            five_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2],
+                                      test_board[ci + 3], test_board[ci + 4]]
+            suits_list = [five_card_test[0][1], five_card_test[1][1], five_card_test[2][1],
+                              five_card_test[3][1], five_card_test[4][1]]
+            if suits_list[1:] == suits_list[:-1]:
+                for card in test_combo:
+                    if card in five_card_test and card[0] > board_flush_low_card:
+                        return True
+            ci += 1
+        
+        return False
+    
+    @staticmethod
+    def nut_flush_check(combo, board):
+        '''Returns True if combo is used to make the nut flush
+        given the board.  Does not care if the combo actually makes a flush.
+        This method is run after RangeStats.flush_check() and assumes the combo
+        makes a flush.'''
+        
+        nut_flush_card = RangeStats.nut_flush_card(board)
+        
+        if combo.cardA == nut_flush_card or combo.cardB == nut_flush_card:
+            return True
+        else:
+            return False        
+    
+    @staticmethod
+    def nut_flush_card(board):
+        '''Returns the card that would make the highest possible flush
+        given the board.
+        Returns a list of [rank, suit]'''
+        
+        if len(board) < 3 or len(board) > 5:
+            return None
+        
+        '''Find the nut flush suit'''
+        suits = [[], [], [], []]
+        
+        for card in board:
+            suits[card[1]].append(card)
+        for i, n in enumerate(suits):
+            if len(n) >= 3:
+                suit = i
+                suits_sorted = sorted(n, key=lambda card: card[0], reverse=True)
+                rank = None
+                for x in range(12, 0, -1):
+                    for card in suits_sorted:
+                        if x in card:
+                            break
+                    else:
+                        rank = x
+                        break
+        return [rank, suit]
+    
+    def reconfigHeight(self):
+        if len(self.allRows) > 0:
+            newHeight = 0
+            for row in self.allRows:
+                if row.extended:
+                    newHeight += row.height + 1
+                    for secondary_row in row.secondary_StatsRows:
+                        newHeight += row.height + 1
+                else:
+                    newHeight += row.height + 1
+    
+            self.setMinimumSize(self.allRows[0].width + 1, newHeight)
+        super().update()
+        
+    
+    def update(self):
+        
+        for row in self.allRows:
+            row.hide()
+        self.allRows.clear()
+        self.allRows = RangeStats.calc(self.combos, self.board)
+        for row in self.allRows:
+            if len(row.secondary_StatsRows) > 0:
+                row.extendable = True
+                for secondary_row in row.secondary_StatsRows:
+                    secondary_row.setParent(row)
+        
+        y = 0
+        for row in self.allRows:
+            row.setParent(self)
+            row.show()
+            row.move(0, y)
+            y += row.drawHeight
+        
+        self.reconfigHeight()
+        
+        #if len(self.allRows) > 0:
+            #newHeight = 0
+            #for row in self.allRows:
+                #if row.extended:
+                    #for secondary_row in row.allRows:
+                        #newHeight += row.height + 1
+                #else:
+                    #newHeight += row.height + 1
+            
+            #self.setMinimumSize(self.allRows[0].width + 1, newHeight)        
+        
+        super().update()
+    
+    #def paintEvent(self, e):
+        #'''so i can stop it and check the stack data'''
+        #pass
+
+
+class StatsRow(QtWidgets.QWidget):
+    '''
+    One row of RangeStats.  Displays made hand type, combos,
+    action selection squares.  Is collapsable and extendable.
+    '''
+    def __init__(self, name, combo_list, total_combos, secondary_rows = []):
+        super().__init__()
+        
+        width, height = 275, 25
+        
+        self.width, self.height = width, height
+        self.drawHeight = self.height
+        
+        self.name = name    # Name of name hand.
+        self.combos = combo_list  # Primary list of Combo Objects
+        self.totalCombos = total_combos
+        
+        '''Format secondary StatsRows'''
+        self.secondary_StatsRows = secondary_rows  # List of subdivision StatsRow objects
+        for i, row in enumerate(self.secondary_StatsRows):
+            row.move(row.x(), (i + 1) * height)
+            row.hide()
+        
+        self.value = []
+        self.bluff = []
+        self.call = []
+        
+        border_height = height
+        for row in self.secondary_StatsRows:
+            border_height += height
+        self.border = QtCore.QRect(0, 0, width, border_height)
+        
+        tri_x = width - 10                    # X coord for starting point of tirangle collapsed indicator
+        tri_y = 8                                  # Y corrd for 'centering' the triable in the row        
+        
+        '''Triangle collapsed indicator'''
+        self.triCollapsed = QtGui.QPainterPath()
+        self.triCollapsed.moveTo(tri_x, tri_y)
+        self.triCollapsed.lineTo(tri_x + 10, tri_y)
+        self.triCollapsed.lineTo(int((tri_x + 10 / 2)), tri_y + 10)
+        self.triCollapsed.closeSubpath()
+        
+        '''Triangle extended indicator'''
+        self.triExtended = QtGui.QPainterPath()
+        self.triExtended.moveTo(tri_x, tri_y + 10)
+        self.triExtended.lineTo(tri_x + 10, tri_y + 10)
+        self.triExtended.lineTo(int((tri_x + 10 / 2)), tri_y)
+        self.triExtended.closeSubpath()
+        
+        '''Value, Bluff, and Call Rects'''
+        rectScale = .75       # % of StatsRow height
+        rectSpacing = 5       # pixels between actionRects
+        rectX = (height - rectScale * height) / 2  # Starting x coord for left most rect
+        rectY = (height - rectScale * height) / 2  # Y coord for rects
+        
+        self.valueRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
+        rectX += height * rectScale + rectSpacing
+        self.bluffRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
+        rectX += height * rectScale + rectSpacing
+        self.callRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
+        rectX += height * rectScale   # Used later for label positioning
+        
+        '''Lables'''
+        font = QtGui.QFont()
+        font.setPixelSize(13)
+        
+        rectLabelGap = 6     # Gap in pixels between last actionRect and name label
+        
+        self.nameLabel = QtWidgets.QLabel(self.name, self)
+        self.nameLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.nameLabel.setFont(font)
+        nameLabelSize = self.nameLabel.size()
+        nameLabelHeight = self.nameLabel.fontMetrics().boundingRect(self.nameLabel.text()).height()
+        nameLabelY = (height - nameLabelHeight) / 2
+        nameLabelX = rectX + rectLabelGap
+        self.nameLabel.move(nameLabelX, nameLabelY)
+        
+        freqComboGap = 5  # Gap in pixels between frequency, combo and triangle indicators
+        
+        freq = round(len(self.combos) / self.totalCombos * 100, 1)
+        if freq.is_integer():
+            freq = round(freq)    
+        self.freqLabel = QtWidgets.QLabel(str(freq) + '%', self)
+        self.freqLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.freqLabel.setFont(font)
+        freqLabelWidth = self.freqLabel.fontMetrics().boundingRect(self.freqLabel.text()).width()
+        freqLabelX = tri_x - freqComboGap - freqLabelWidth
+        self.freqLabel.move(freqLabelX, nameLabelY)
+        
+        self.comboLabel = QtWidgets.QLabel('(' + str(len(self.combos)) + ')', self)
+        self.comboLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.comboLabel.setFont(font)
+        comboLabelWidth = self.comboLabel.fontMetrics().boundingRect(self.comboLabel.text()).width()
+        comboLabelX = freqLabelX - freqComboGap - comboLabelWidth - font.pixelSize()
+        self.comboLabel.move(comboLabelX, nameLabelY)
+        
+        '''RGB values for display'''
+        self.valueBrush = [255, 77, 77]
+        self.bluffBrush = [255, 166, 166]
+        self.callBrush = [103, 178, 45]        
+        
+        self.extendable = False
+        self.extended = False
+        
+        self.setMinimumSize(width + 1, height + 1)
+    
+    def calcHeight(self):
+        '''
+        Recalculates and updates self.height.
+        Used by mousePressEvent and RangeStats for drawing.
+        '''
+        spacing = 5   # pixel gap between stats rows
+        height = self.height
+        if self.extended:
+            for row in self.secondary_StatsRows:
+                height += self.height
+        else:
+            height = self.height
+        
+        self.drawHeight = height
+    
+    def mousePressEvent(self, e):
+        if self.extendable:
+            if not self.extended:
+                self.extended = True
+                self.calcHeight()
+                for row in self.secondary_StatsRows:
+                    row.show()
+            else:
+                self.extended = False
+                self.calcHeight()
+                for row in self.secondary_StatsRows:
+                    row.hide()
+            self.setMinimumSize(self.width + 3, self.drawHeight + 3)
+            self.update()
+        self.parent().reconfigHeight()
+        
+    def paintEvent(self, e):
+        
+        painter = QtGui.QPainter(self)
+        black_pen = QtGui.QPen(Qt.black, 1, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        grey_pen = QtGui.QPen(Qt.gray, 1, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        painter.setPen(black_pen)
+        
+        value = QtGui.QBrush()
+        value.setColor(QtGui.QColor(self.valueBrush[0], self.valueBrush[1], self.valueBrush[2]))
+        value.setStyle(Qt.SolidPattern)
+        
+        bluff = QtGui.QBrush()
+        bluff.setColor(QtGui.QColor(self.bluffBrush[0], self.bluffBrush[1], self.bluffBrush[2]))
+        bluff.setStyle(Qt.SolidPattern)
+        
+        call = QtGui.QBrush()
+        call.setColor(QtGui.QColor(self.callBrush[0], self.callBrush[1], self.callBrush[2]))
+        call.setStyle(Qt.SolidPattern)        
+        
+        triBrush = QtGui.QBrush()
+        triBrush.setColor(QtGui.QColor(0, 0, 0))
+        triBrush.setStyle(Qt.SolidPattern)        
+        
+        '''Draw ActionRects'''
+        if len(self.value) > 0:
+            painter.fillRect(self.valueRect, value)
+        if len(self.bluff) > 0:
+            painter.fillRect(self.bluffRect, bluff)
+        if len(self.call) > 0:
+            painter.fillRect(self.callRect, call)
+        
+        painter.drawRect(self.valueRect)
+        painter.drawRect(self.bluffRect)
+        painter.drawRect(self.callRect)
+        
+        painter.drawText(self.valueRect, Qt.AlignCenter, 'V')
+        painter.drawText(self.bluffRect, Qt.AlignCenter, 'B')
+        painter.drawText(self.callRect, Qt.AlignCenter, 'C')
+        
+        '''Draw the correct triangle'''
+        if self.extendable:
+            if not self.extended:
+                painter.fillPath(self.triCollapsed, triBrush)
+                painter.drawPath(self.triCollapsed)
+            elif self.extended:
+                painter.fillPath(self.triExtended, triBrush)
+                painter.drawPath(self.triExtended)
+        
+        '''Draw Border'''
+        if self.extended:
+            painter.drawRect(self.border)
+
+"""ACTIONBUCKETS and related classes"""
+        
+class ActionBuckets(QtWidgets.QWidget):
+    '''
+    Widget for displaying Value, Bluff, and Call Buttons and
+    each's stats.
+    '''
+    
+    actionSelected = QtCore.pyqtSignal(str)
+    
+    def __init__(self):
+        super().__init__()
+        
+        width, height = 62, 25
+        ol_w = 5
+        
+        '''Establish Layout'''
+        layout = QtWidgets.QGridLayout()
+        
+        '''Create and Add ActionButtons to layout'''
+        self.valueButton = ActionButton(width, height, ol_w, 'Value')
+        self.bluffButton = ActionButton(width, height, ol_w, 'Bluff')
+        self.callButton = ActionButton(width, height, ol_w, 'Call')
+        
+        layout.addWidget(self.valueButton, 0, 0, Qt.AlignCenter)
+        layout.addWidget(self.bluffButton, 0, 1, Qt.AlignCenter)
+        layout.addWidget(self.callButton, 0, 2, Qt.AlignCenter)
+        
+        self.valueButton.clicked.connect(self.buttonClicked)
+        self.bluffButton.clicked.connect(self.buttonClicked)
+        self.callButton.clicked.connect(self.buttonClicked)
+        
+        '''Create, format, and add Combo and Frequency labels to layout'''
+        self.valComLabel = QtWidgets.QLabel('0')
+        self.bluffComLabel = QtWidgets.QLabel('0')
+        self.callComLabel = QtWidgets.QLabel('0')
+        
+        comboFont = QtGui.QFont()
+        comboFont.setPixelSize(15)
+        
+        self.valComLabel.setFont(comboFont)
+        self.bluffComLabel.setFont(comboFont)
+        self.callComLabel.setFont(comboFont)
+        
+        layout.addWidget(self.valComLabel, 1, 0, Qt.AlignCenter)
+        layout.addWidget(self.bluffComLabel, 1, 1, Qt.AlignCenter)
+        layout.addWidget(self.callComLabel, 1, 2, Qt.AlignCenter)
+        
+        self.valFreqLabel = QtWidgets.QLabel('0%')
+        self.bluffFreqLabel = QtWidgets.QLabel('0%')
+        self.callFreqLabel = QtWidgets.QLabel('0%')
+        
+        self.valFreqLabel.setFont(comboFont)
+        self.bluffFreqLabel.setFont(comboFont)
+        self.callFreqLabel.setFont(comboFont)
+        
+        layout.addWidget(self.valFreqLabel, 2, 0, Qt.AlignCenter)
+        layout.addWidget(self.bluffFreqLabel, 2, 1, Qt.AlignCenter)
+        layout.addWidget(self.callFreqLabel, 2, 2, Qt.AlignCenter)
+        
+        '''Create, format, and add the Value : Bluff and Continue Frequency labels'''
+        self.valueBluffLabel = QtWidgets.QLabel('Value : Bluff')
+        self.contFreqLabel = QtWidgets.QLabel('Continue Freq')
+        
+        comboFont.setPixelSize(13)
+        self.valueBluffLabel.setFont(comboFont)
+        self.contFreqLabel.setFont(comboFont)
+        
+        layout.addWidget(self.valueBluffLabel, 0, 3, Qt.AlignLeft)
+        layout.addWidget(self.contFreqLabel, 1, 3, Qt.AlignLeft)
+        
+        self.valueBluffRatio = QtWidgets.QLabel('0 : 0')
+        self.contFreqNum = QtWidgets.QLabel('0%')
+        
+        comboFont.setBold(True)
+        comboFont.setPixelSize(15)
+        self.valueBluffRatio.setFont(comboFont)
+        self.contFreqNum.setFont(comboFont)
+        
+        layout.addWidget(self.valueBluffRatio, 0, 4, Qt.AlignLeft)
+        layout.addWidget(self.contFreqNum, 1, 4, Qt.AlignLeft)
+        
+        '''Format the QGridLayout'''
+        layout.setVerticalSpacing(0)
+        
+        sizepolicy = QtWidgets.QSizePolicy()
+        sizepolicy.setVerticalStretch(0)
+        sizepolicy.setHorizontalStretch(0)
+        self.setSizePolicy(sizepolicy)
+        
+        self.setLayout(layout)
+        
+        '''Attrubutes'''
+        self.value = set()
+        self.bluff = set()
+        self.call = set()
+        self.totalCombos = 0
+        self.board = []
+        
+    def buttonClicked(self, action):
+        
+        if self.valueButton.action != action:
+            self.valueButton.selected = False
+        if self.bluffButton.action != action:
+            self.bluffButton.selected = False
+        if self.callButton.action != action:
+            self.callButton.selected = False
+        
+        '''Emit signal to tell RangeStats and RangeDisplay which action is selected.'''
+        if self.valueButton.selected:
+            self.actionSelected.emit('value')
+        elif self.bluffButton.selected:
+            self.actionSelected.emit('bluff')
+        elif self.callButton.selected:
+            self.actionSelected.emit('call')
+        else:
+            self.actionSelected.emit('')
+        
+        self.update()
+    
+    def receiveRanges(self, ranges):
+        '''Slot for RangeDisplay signal that sends updates rangeSets'''
+        
+        self.value = ranges[0]
+        self.bluff = ranges[1]
+        self.call = ranges[2]
+        
+        self.update()
+    
+    def receiveBoard(self, board):
+        '''Slot for receiving board info from BoardDisplay'''
+        
+        self.board = board
+        self.update()
+    
+    def update(self):
+        
+        '''Update Combo Numbers'''
+        self.value = RangeStats.removeBlockedCombos(self.value, self.board)
+        self.bluff = RangeStats.removeBlockedCombos(self.bluff, self.board)
+        self.call = RangeStats.removeBlockedCombos(self.call, self.board)
+        
+        self.totalCombos = len(self.value) + len(self.bluff) + len(self.call)
+        
+        self.valComLabel.setText(str(len(self.value)))
+        self.bluffComLabel.setText(str(len(self.bluff)))
+        self.callComLabel.setText(str(len(self.call)))
+        
+        '''Update Frequency Numbers'''
+        if self.totalCombos != 0:
+            
+            valueFreq = round(len(self.value) / self.totalCombos * 100, 1)
+            if valueFreq.is_integer():
+                valueFreq = round(valueFreq)
+            self.valFreqLabel.setText(str(valueFreq) + '%')
+            
+            bluffFreq = round(len(self.bluff) / self.totalCombos * 100, 1)
+            if bluffFreq.is_integer():
+                bluffFreq = round(bluffFreq)
+            self.bluffFreqLabel.setText(str(bluffFreq) + '%')
+            
+            callFreq = round(len(self.call) / self.totalCombos * 100, 1)
+            if callFreq.is_integer():
+                callFreq = round(callFreq)
+            self.callFreqLabel.setText(str(callFreq) + '%')
+            
+        else:
+            self.valFreqLabel.setText('0%')
+            self.bluffFreqLabel.setText('0%')
+            self.callFreqLabel.setText('0%')
+        
+        '''Update Value : Bluff Ratio'''
+        if len(self.value) >= len(self.bluff) and len(self.bluff) != 0:
+            valueNum = str(round(len(self.value) / len(self.bluff), 2))
+            if valueNum[-1] == '0':
+                valueNum = valueNum[0]
+            bluffNum = '1'
+        elif len(self.bluff) >= len(self.value) and len(self.value) != 0:
+            valueNum = '1'
+            bluffNum = str(round(len(self.bluff) / len(self.value), 2))
+            if bluffNum[-1] == '0':
+                bluffNum = bluffNum[0]
+        else:
+            valueNum = str(len(self.value))
+            bluffNum = str(len(self.bluff))
+        ratio_text = valueNum + ' : ' + bluffNum
+        self.valueBluffRatio.setText(ratio_text)      
+        
+        super().update()
+
+
+class ActionButton(QtWidgets.QWidget):
+    '''
+    Value, Bluff, or Call Button.
+    Used by ActionBuckets class.
+    '''
+    
+    clicked = QtCore.pyqtSignal(str)
+    
+    def __init__(self, width, height, ol_w, action):
+        super().__init__()
+        
+        self.selected = False
+        self.action = action
+        self.button = QtCore.QRect(ol_w, ol_w, width, height)
+        self.outline = QtCore.QRect(0, 0, width + 2 * ol_w, height + 2 * ol_w)
+        self.label = QtCore.QRect((width / 6), (height / 6), width * (2 / 3), height * (2 / 3))
+        
+        self.valueBrush = [255, 77, 77]
+        self.bluffBrush = [255, 166, 166]
+        self.callBrush = [103, 178, 45]
+        self.outlineSelection = [153, 204, 255]
+        
+        self.labelSize = 16
+        
+        self.setMinimumSize(self.outline.width(), self.outline.height())
+        
+    def mouseReleaseEvent(self, e):
+        
+        self.selected = not self.selected
+        self.clicked.emit(self.action)
+    
+    def paintEvent(self, e):
+        
+        painter = QtGui.QPainter(self)
+        
+        value = QtGui.QBrush()
+        value.setColor(QtGui.QColor(self.valueBrush[0], self.valueBrush[1], self.valueBrush[2]))
+        value.setStyle(Qt.SolidPattern)
+        
+        bluff = QtGui.QBrush()
+        bluff.setColor(QtGui.QColor(self.bluffBrush[0], self.bluffBrush[1], self.bluffBrush[2]))
+        bluff.setStyle(Qt.SolidPattern)
+        
+        call = QtGui.QBrush()
+        call.setColor(QtGui.QColor(self.callBrush[0], self.callBrush[1], self.callBrush[2]))
+        call.setStyle(Qt.SolidPattern)
+        
+        selected = QtGui.QBrush()
+        selected.setColor(QtGui.QColor(self.outlineSelection[0], self.outlineSelection[1], self.outlineSelection[2]))
+        selected.setStyle(Qt.SolidPattern)
+        
+        if self.selected:
+            painter.fillRect(self.outline, selected)
+            
+        if self.action == 'Value':
+            painter.fillRect(self.button, value)
+        elif self.action == 'Bluff':
+            painter.fillRect(self.button, bluff)
+        else:
+            painter.fillRect(self.button, call)
+            
+        painter.drawRect(self.button)
+        
+        font = QtGui.QFont()
+        font.setPixelSize(self.labelSize)
+        painter.setFont(font)
+        
+        painter.drawText(self.button, Qt.AlignCenter, self.action)
+
+
+"""BOARD DISPLAY and associated Widgets"""
+
+class BoardDisplay(QtWidgets.QWidget):
+    '''
+    Widget for selecting and displaying board cards.
+    Used in PlayerWindow Widget.
+    '''
+    
+    '''Signal for RangeStats to receive board card changes'''
+    sendBoardCards = QtCore.pyqtSignal(list)
+    
+    def __init__(self):
+        super().__init__()
+        
+        layout = QtWidgets.QGridLayout()
+        
+        flopSpacing = 0        # Column width between flop cards
+        turnRiverSpacing = 10   # Column width between turn and river cards
+        
+        self.scale = .6  ### Size of Cards changed here ###
+        
+        self.board = ''
+        
+        '''Add Labels to grid'''
+        flopLabel = QtWidgets.QLabel('Flop')
+        turnLabel = QtWidgets.QLabel('Turn')
+        riverLabel = QtWidgets.QLabel('River')
+        
+        layout.addWidget(flopLabel, 0, 2, Qt.AlignCenter)
+        layout.addWidget(turnLabel, 0, 6, Qt.AlignCenter)
+        layout.addWidget(riverLabel, 0, 8, Qt.AlignCenter)
+        
+        '''Add Cards to GridLayout'''
+        self.flop1 = BoardCard(self.scale)
+        self.flop2 = BoardCard(self.scale)
+        self.flop3 = BoardCard(self.scale)
+        self.turn = BoardCard(self.scale)
+        self.river = BoardCard(self.scale)
+        
+        layout.addWidget(self.flop1, 1, 0, Qt.AlignCenter)
+        layout.addWidget(self.flop2, 1, 2, Qt.AlignCenter)
+        layout.addWidget(self.flop3, 1, 4, Qt.AlignCenter)
+        layout.addWidget(self.turn, 1, 6, Qt.AlignCenter)
+        layout.addWidget(self.river, 1, 8, Qt.AlignCenter)
+        
+        '''Set grid spacing'''
+        layout.setColumnMinimumWidth(1, flopSpacing)
+        layout.setColumnMinimumWidth(3, flopSpacing)
+        layout.setColumnMinimumWidth(5, turnRiverSpacing)
+        layout.setColumnMinimumWidth(7, turnRiverSpacing)
+        
+        '''Connect card click signals'''
+        self.flop1.cardClicked.connect(self.onCardClick)
+        self.flop2.cardClicked.connect(self.onCardClick)
+        self.flop3.cardClicked.connect(self.onCardClick)
+        self.turn.cardClicked.connect(self.onCardClick)
+        self.river.cardClicked.connect(self.onCardClick)
+        self.setLayout(layout)
+        
+        self.boardSelection = BoardSelection()
+    
+    def onCardClick(self):
+        if self.boardSelection.exec():
+            self.board = self.boardSelection.board
+            self.sendBoardCards.emit(self.board)
+            self.update()
+    
+    def update(self):
+        
+        '''Clear each card's rank and suit'''
+        self.flop1.revealedCard = self.flop1.getCard(0, 4, self.scale)
+        self.flop2.revealedCard = self.flop2.getCard(0, 4, self.scale)
+        self.flop3.revealedCard = self.flop3.getCard(0, 4, self.scale)
+        self.turn.revealedCard = self.turn.getCard(0, 4, self.scale)
+        self.river.revealedCard = self.river.getCard(0, 4, self.scale)
+        
+        '''Update with New Rank and Suit'''
+        if len(self.board) > 0:
+            self.flop1.revealedCard = self.flop1.getCard(self.board[0][0], self.board[0][1], self.scale)
+        if len(self.board) > 1:
+            self.flop2.revealedCard = self.flop2.getCard(self.board[1][0], self.board[1][1], self.scale)
+        if len(self.board) > 2:
+            self.flop3.revealedCard = self.flop3.getCard(self.board[2][0], self.board[2][1], self.scale)
+        if len(self.board) > 3:
+            self.turn.revealedCard = self.turn.getCard(self.board[3][0], self.board[3][1], self.scale)
+        if len(self.board) > 4:
+            self.river.revealedCard = self.river.getCard(self.board[4][0], self.board[4][1], self.scale)    
+        
+        super().update()
+
+
+class BoardCard(QtWidgets.QWidget):
+    '''
+    A single card displayed in BoardDisplay or BoardSelection.
+    '''
+    
+    cardClicked = QtCore.pyqtSignal(list)
+    
+    def __init__(self, scale, rank = 0, suit = 4):
+        '''Rank is integer between 0 and 12 meaning 2 thru Ace.
+        Suit is integer between 0 and 3 meaning h, d, c, s respectively'''
+        super().__init__()
+        
+        self.selected = False  #  If selected, will be displayed with grey shading
+        self.revealed = True  # If not revealed, will show card backside
+        
+        self.name = ''
+        
+        self.scale = scale
+        
+        self.rank = rank  
+        self.suit = suit  # If suit is 4, card is 'blank' or unknown
+        
+        self.revealedCard = self.getCard(rank, suit, scale)
+        
+        self.selectRect = QtCore.QRect(0, 0, 81 * scale, 117 * scale)
+        
+        self.setMinimumSize(81 * scale + 1, 117 * scale + 1)
+        
+    def getCard(self, column, row, scale):
+        '''
+        Returns a scaled pixmap of the correct card to display
+        Used during __init__
+        '''
+        
+        card_col = 81 * column
+        card_row = 117 * row        
+        
+        scaled_width = round(scale * 81, 0)
+        scaled_height = round(scale * 117, 0)
+        size = QtCore.QSize(scaled_width, scaled_height)
+        
+        card = QtGui.QPixmap('cards_sheet.gif')
+        card1 = card.copy(card_col - 1, card_row - 1, 81 + 1, 117 + 1)
+        
+        return card1.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    
+    def swtichSelection(self, card):
+        if card[0] == self.rank and card[1] == self.suit:
+            self.selected = not self.selected
+        self.update()
+    
+    def mouseReleaseEvent(self, e):
+        self.cardClicked.emit([self.rank, self.suit])
+        
+    def paintEvent(self, e):
+        
+        painter = QtGui.QPainter(self)
+        
+        selectedBrush = QtGui.QBrush()
+        selectedBrush.setColor(QtGui.QColor(0, 0, 0))
+        selectedBrush.setStyle(Qt.Dense4Pattern)        
+        
+        painter.drawPixmap(0, 0, self.revealedCard)
+        
+        if self.selected:
+            painter.fillRect(self.selectRect, selectedBrush)
+            
+    
+class BoardSelection(QtWidgets.QDialog):
+    '''Dialog window that pops up to select board cards'''
+    
+    switchSelection = QtCore.pyqtSignal(list)
+    
+    def __init__(self):
+        super().__init__()
+        
+        self.setModal(True)
+        self.setWindowTitle('Select Board Cards')
+        self.resize(620, 325)
+        
+        scale = .57
+        size = QtCore.QSize(round(scale * 1053, 0), round(scale * 1468, 0))
+        
+        layout = self.buildCardGrid(scale)
+        layout.setSpacing(1)
+        
+        self.ok_button = QtWidgets.QPushButton("OK", self)
+        self.ok_button.setDefault(True)
+        self.ok_button.clicked.connect(self.accept)
+        layout.addWidget(self.ok_button, 4, 1, 4, 2, Qt.AlignLeft)
+        
+        self.cancel_button = QtWidgets.QPushButton("Cancel", self)
+        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.setDefault(False)
+        layout.addWidget(self.cancel_button, 4, 3, 4, 2, Qt.AlignLeft)
+        
+        self.clear_button = QtWidgets.QPushButton("Clear", self)
+        self.clear_button.clicked.connect(self.clear)
+        layout.addWidget(self.clear_button, 4, 6, 4, 2, Qt.AlignLeft)
+        
+        self.board = []
+        
+        self.setLayout(layout)
+        
+    def buildCardGrid(self, scale):
+        '''
+        Constructs the 13 x 4 grid of all cards.
+        Used during __init__
+        '''
+        
+        layout = QtWidgets.QGridLayout()
+        
+        for i in range(4):
+            for n in range(13):
+                card = BoardCard(scale, n, i)
+                card.cardClicked.connect(self.cardClicked)
+                self.switchSelection.connect(card.swtichSelection)
+                layout.addWidget(card, i, n)
+        
+        return layout
+    
+    def cardClicked(self, card):
+        '''
+        Slot for when a BoardCard is clicked and emits the card info.
+        This function determines what to do next.
+        card parameter needs to be a list of numebrs representing rank and suit:
+        [0 thru 13, 0 thru 3]
+        '''
+        
+        if card in self.board:
+            self.board.remove(card)
+            self.switchSelection.emit(card)
+        elif len(self.board) < 5:
+            self.board.append(card)
+            self.switchSelection.emit(card)
+
+    def clear(self):
+        '''Unselects all cards'''
+        
+        for card in self.board:
+            self.switchSelection.emit(card)
+        self.board = []
+        
+
+"""Data Storage and Range Info Transfer Objects"""
+
+class Combo():
+    '''
+    Individual Combo, i.e. AsTh
+    Parameter cards are [rank, suit]
+    Rank is integer 0 - 12, where 0 is 2 and 12 is Ace
+    Suit is 0 - 3 where 0 = h, 1 = d, 2 = c, 3 = s
+    '''
+    
+    def __init__(self, cardA = [], cardB = []):
+        
+        '''[rank 0 - 12, suit 0 - 3]'''
+        self.cardA = cardA
+        self.cardB = cardB
+        
+        self.comboRect = self.getComboRect()
+        
+        self.text = self.getText()  # String Name of the combo
+        
+        self.gridIndex = self.getGridIndex()  # Index location in the 169 item list of ComboRects
+    
+    def getComboRect(self):
+        '''
+        Determine which RangeMatrix ComboRect this combo belongs in.
+        Returns a list of integers [col, row] where col and row are the column
+        and row of its location in a RangeMatrix.'''
+        
+        comboRectText = ''
+        
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                      "9", "T", "J", "Q", "K", "A"]
+        suit_value = ['h', 'd', 'c', 's']
+        
+        if self.cardA[0] == self.cardB[0]:
+            comboRectText += rank_value[self.cardA[0]]
+            comboRectText += rank_value[self.cardB[0]]
+        else:
+            cardA = max(self.cardA[0], self.cardB[0])
+            cardB = min(self.cardA[0], self.cardB[0])
+            comboRectText += rank_value[cardA]
+            comboRectText += rank_value[cardB]
+            if self.cardA[1] == self.cardB[1]:
+                comboRectText += 's'
+            else:
+                comboRectText += 'o'
+        return comboRectText
+    
+    def getText(self):
+        '''
+        Returns text version of combo, i.e. 'Ah7c'
+        '''
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                      "9", "T", "J", "Q", "K", "A"]
+        suit_value = ['h', 'd', 'c', 's']
+        
+        cardA = rank_value[self.cardA[0]]
+        cardA += suit_value[self.cardA[1]]
+        
+        cardB = rank_value[self.cardB[0]]
+        cardB += suit_value[self.cardB[1]]
+        
+        if self.cardA[0] == self.cardB[0]:
+            if self.cardA[1] < self.cardB[1]:
+                return cardA + cardB
+            else:
+                return cardB + cardA
+            
+        elif self.cardA[0] < self.cardB[0]:
+            return cardB + cardA
+        else:
+            return cardA + cardB
+    
+    def getGridIndex(self):
+        '''
+        Returns the Combo's Index location within 169 item list
+        that represents the 13x13 range matrix.
+        '''
+        
+        gridref = ['AA', 'AKs', 'AQs', 'AJs', 'ATs', 'A9s', 'A8s', 'A7s', 'A6s', 'A5s', 'A4s', 'A3s', 'A2s', 
+                   'AKo', 'KK', 'KQs', 'KJs', 'KTs', 'K9s', 'K8s', 'K7s', 'K6s', 'K5s', 'K4s', 'K3s', 'K2s',
+                   'AQo', 'KQo', 'QQ', 'QJs', 'QTs', 'Q9s', 'Q8s', 'Q7s', 'Q6s', 'Q5s', 'Q4s', 'Q3s', 'Q2s',
+                   'AJo', 'KJo', 'QJo', 'JJ', 'JTs', 'J9s', 'J8s', 'J7s', 'J6s', 'J5s', 'J4s', 'J3s', 'J2s',
+                   'ATo', 'KTo', 'QTo', 'JTo', 'TT', 'T9s', 'T8s', 'T7s', 'T6s', 'T5s', 'T4s', 'T3s', 'T2s',
+                   'A9o', 'K9o', 'Q9o', 'J9o', 'T9o', '99', '98s', '97s', '96s', '95s', '94s', '93s', '92s',
+                   'A8o', 'K8o', 'Q8o', 'J8o', 'T8o', '98o', '88', '87s', '86s', '85s', '84s', '83s', '82s',
+                   'A7o', 'K7o', 'Q7o', 'J7o', 'T7o', '97o', '87o', '77', '76s', '75s', '74s', '73s', '72s',
+                   'A6o', 'K6o', 'Q6o', 'J6o', 'T6o', '96o', '86o', '76o', '66', '65s', '64s', '63s', '62s',
+                   'A5o', 'K5o', 'Q5o', 'J5o', 'T5o', '95o', '85o', '75o', '65o', '55', '54s', '53s', '52s',
+                   'A4o', 'K4o', 'Q4o', 'J4o', 'T4o', '94o', '84o', '74o', '64o', '54o', '44', '43s', '42s',
+                   'A3o', 'K3o', 'Q3o', 'J3o', 'T3o', '93o', '83o', '73o', '63o', '53o', '43o', '33', '32s',
+                   'A2o', 'K2o', 'Q2o', 'J2o', 'T2o', '92o', '82o', '72o', '62o', '52o', '42o', '32o', '22']
+        
+        return gridref.index(self.comboRect)
