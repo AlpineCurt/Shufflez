@@ -10,3 +10,8 @@ Shufflez follows a single poker hand as it was played and the user can select an
 or drawing hand it makes.  This will then give the user the frequency at which each
 action is taking place, allowing them to find vulnerabilities in their strategy or exploits
 in their opponents'.
+
+ShufflezUI.py is the main file to run the program.  It builds the windows of the program
+
+ShufflezWidgets are the widgets that make up the program.  RangeMatrix, RangeStats,
+ActionButtons are all here.
