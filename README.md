@@ -15,3 +15,5 @@ ShufflezUI.py is the main file to run the program.  It builds the windows of the
 
 ShufflezWidgets are the widgets that make up the program.  RangeMatrix, RangeStats,
 ActionButtons are all here.
+
+test_ShufflezWidgets is unit testing.
