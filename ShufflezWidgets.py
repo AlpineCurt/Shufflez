@@ -946,10 +946,33 @@ class RangeStats(QtWidgets.QWidget):
         self.value = []
         self.bluff = []
         self.call = []
+        
+        '''Tracks each child StatsRow.extended status.'''
+        self.made_hands = self.made_hand_extended_tracker()
     
+    def made_hand_extended_tracker(self):
+        '''
+        Returns a dict of key='Made Hand Name' and
+        value=Boolean representing if it is extended or not.
+        Used by self.__init__.
+        As new hand types are added to self.calc they get added
+        here first as the dict created here is used to make made_hands
+        dict in self.calc.
+        '''
+        
+        made_hands = {}
+        made_hands['Straight Flush'] = False
+        made_hands['Four of a Kind'] = False
+        made_hands['Full House'] = False
+        made_hands['Flush'] = False
+        made_hands['Straight'] = False
+        
+        return made_hands
+        
     def receiveBoard(self, boardCards):
         '''Slot for BoardDisplay sendBoardCards signal'''
         self.board = boardCards
+        self.calcAllRows()
         self.update()
     
     def receiveCombos(self, combos):
@@ -962,10 +985,44 @@ class RangeStats(QtWidgets.QWidget):
         for combo_list in combos:
             combined_combos.extend(combo_list)
         self.combos = combined_combos
+        self.calcAllRows()
         self.update()
+    
+    def saveExtendedStatus(self, hand_type, extended):
+        '''Used when a child StatsRow object extends or collapses
+        to remember its state.'''
+        for hand in self.made_hands:
+            if hand == hand_type:
+                self.made_hands[hand] = extended
+                break
+            
+    def setExtendedStatus(self):
+        '''Sets each child StatsRow's extended status from
+        self.made_hands dict.  Used during self.update'''
         
-    @staticmethod
-    def calc(combos, board):
+        for row in self.allRows:
+            for hand in self.made_hands:
+                if row.name == hand:
+                    row.extended = self.made_hands[hand]
+                    row.calcHeight()
+                    break
+    
+    def calcAllRows(self):
+        '''Clear allRows and recalculate made hand stats.'''
+        
+        for row in self.allRows:
+            row.hide()
+        self.allRows.clear()
+        if len(self.board) >= 3:
+            self.allRows = self.calc(self.combos, self.board)
+        for row in self.allRows:
+            if len(row.secondary_StatsRows) > 0:
+                row.extendable = True
+                row.calcHeight()
+                for secondary_row in row.secondary_StatsRows:
+                    secondary_row.setParent(row)
+        
+    def calc(self, combos, board):
         '''
         Main Made Hand Stats Sovler.
         Returns a list of StatsRow Objects.
@@ -979,16 +1036,19 @@ class RangeStats(QtWidgets.QWidget):
         total_combos = len(unBlockedCombos)
         
         made_hands = {}
-        made_hands['Str Flush'] = []
-        made_hands['Four of a Kind'] = []
-        made_hands['Full House'] = []
-        made_hands['Flush'] = []
+        for hand in self.made_hands:
+            made_hands[hand] = []
         
         flush = {}
         flush['Nut Flush'] = []
-        flush['Second Nut Flush'] = []
-        flush['Third Nut Flush'] = []
+        flush['2nd Nut Flush'] = []
+        flush['3rd Nut Flush'] = []
         flush['Weak Flush'] = []
+        
+        straight = {}
+        straight['Nut Straight'] = []
+        straight['2nd Nut Straight'] = []
+        straight['Weak Straight'] = []
         
         '''Check board for made hands to disallow lesser hand types from being checked'''
         
@@ -1000,7 +1060,7 @@ class RangeStats(QtWidgets.QWidget):
             
             '''Straight Flush'''
             if ShCalc.str_flush_check(combo, board):
-                made_hands['Str Flush'].append(combo)
+                made_hands['Straight Flush'].append(combo)
                 continue
             if ShCalc.board_str_flush_check(board):
                 continue
@@ -1025,12 +1085,26 @@ class RangeStats(QtWidgets.QWidget):
                 '''Assign combo to type of flush'''
                 if ShCalc.nut_flush_check(combo, board):
                     flush['Nut Flush'].append(combo)
+                elif ShCalc.second_nut_flush_check(combo, board):
+                    flush['2nd Nut Flush'].append(combo)
+                elif ShCalc.third_nut_flush_check(combo, board):
+                    flush['3rd Nut Flush'].append(combo)
+                else:
+                    flush['Weak Flush'].append(combo)
                 
             if ShCalc.board_flush_check(board):
                 continue
+            
+            if ShCalc.straight_check(combo, board):
+                made_hands['Straight'].append(combo)
+                '''Assign combo to type of straight'''
+                if ShCalc.nut_straight_check(combo, board):
+                    straight['Nut Straight'].append(combo)
+                elif ShCalc.second_nut_straight_check(combo, board):
+                    straight['2nd Nut Straight'].append(combo)
+                else:
+                    straight['Weak Straight'].append(combo)
                 
-        
-        
         '''Iterate through each drawing or other type of hand.
         Each combo could belong to more than one of these.'''
         
@@ -1039,8 +1113,13 @@ class RangeStats(QtWidgets.QWidget):
         '''Construct a list of StatsRow objects for each dict of made hands'''
         flush_total_combos = len(made_hands['Flush'])
         if flush_total_combos > 0:
-            flush_stats = RangeStats.dictToStatsRows(flush, flush_total_combos)
-            made_hands['Flush'].append(flush_stats)        
+            flush_stats = RangeStats.dictToStatsRows(flush, total_combos)
+            made_hands['Flush'].append(flush_stats)
+        
+        straight_total_combos = len(made_hands['Straight'])
+        if straight_total_combos > 0:
+            straight_stats = RangeStats.dictToStatsRows(straight, total_combos)
+            made_hands['Straight'].append(straight_stats)
         
         finalStats = RangeStats.dictToStatsRows(made_hands, total_combos)
          
@@ -1069,7 +1148,8 @@ class RangeStats(QtWidgets.QWidget):
         return stats_row_list    
     
     def reconfigHeight(self):
-        '''Used by self.update() and when a StatsRow object extends or collapses.'''
+        '''Used by self.update() and when a StatsRow object extends or collapses.
+        Sets new MinimumSize for the widget.'''
         if len(self.allRows) > 0:
             newHeight = 0
             for row in self.allRows:
@@ -1079,47 +1159,65 @@ class RangeStats(QtWidgets.QWidget):
                         newHeight += row.height + 1
                 else:
                     newHeight += row.height + 1
-    
             self.setMinimumSize(self.allRows[0].width + 1, newHeight)
-        super().update()
+    
+    def setRowPosition(self):
+        '''Set x, y position for each visible StatsRow object'''
+        x, y = 0, 0
+        for row in self.allRows:
+            row.setParent(self)
+            
+            row.move(x, y)
+            row.show()
+            if row.extended:
+                for secondary_row in row.secondary_StatsRows:
+                    secondary_row.show()
+                    y += row.drawHeight
+            else:
+                y += row.drawHeight
         
     def update(self):
         
-        for row in self.allRows:
-            row.hide()
-        self.allRows.clear()
-        self.allRows = RangeStats.calc(self.combos, self.board)
-        for row in self.allRows:
-            if len(row.secondary_StatsRows) > 0:
-                row.extendable = True
-                for secondary_row in row.secondary_StatsRows:
-                    secondary_row.setParent(row)
+        #'''clear self.allRows and calculate new StatsRow objects
+        #for self.allRows'''
+        #for row in self.allRows:
+            #row.hide()
+        #self.allRows.clear()
+        #if len(self.board) >= 3:
+            #self.allRows = self.calc(self.combos, self.board)
+        #for row in self.allRows:
+            #if len(row.secondary_StatsRows) > 0:
+                #row.extendable = True
+                #row.calcHeight()
+                #for secondary_row in row.secondary_StatsRows:
+                    #secondary_row.setParent(row)
         
-        y = 0
-        for row in self.allRows:
-            row.setParent(self)
-            row.show()
-            row.move(0, y)
-            y += row.drawHeight
+        self.setExtendedStatus()
+        
+        self.setRowPosition()
         
         self.reconfigHeight()
         
-        #if len(self.allRows) > 0:
-            #newHeight = 0
-            #for row in self.allRows:
-                #if row.extended:
-                    #for secondary_row in row.allRows:
-                        #newHeight += row.height + 1
-                #else:
-                    #newHeight += row.height + 1
-            
-            #self.setMinimumSize(self.allRows[0].width + 1, newHeight)        
-        
+        #'''Set x, y position for each visible StatsRow object'''
+        #x, y = 0, 0
+        #for row in self.allRows:
+            #row.setParent(self)
+            #row.show()
+            #row.move(x, y)
+            #if row.extended:
+                #for secondary_row in row.secondary_StatsRows:
+                    #secondary_row.show()
+                    #y += row.drawHeight
+            #else:
+                #y += row.drawHeight
+        #for row in self.allRows:
+            #row.update()
+                
         super().update()
     
-    #def paintEvent(self, e):
-        #'''so i can stop it and check the stack data'''
-        #pass
+    def paintEvent(self, e):
+        '''so i can stop it and check the stack data'''
+        pass
 
 
 class StatsRow(QtWidgets.QWidget):
@@ -1215,7 +1313,7 @@ class StatsRow(QtWidgets.QWidget):
         self.comboLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.comboLabel.setFont(font)
         comboLabelWidth = self.comboLabel.fontMetrics().boundingRect(self.comboLabel.text()).width()
-        comboLabelX = freqLabelX - freqComboGap - comboLabelWidth - font.pixelSize()
+        comboLabelX = self.width * (2/3)
         self.comboLabel.move(comboLabelX, nameLabelY)
         
         '''RGB values for display'''
@@ -1230,7 +1328,8 @@ class StatsRow(QtWidgets.QWidget):
     
     def calcHeight(self):
         '''
-        Recalculates and updates self.height.
+        Recalculates and updates self.height and sets widget
+        minimumsize.
         Used by mousePressEvent and RangeStats for drawing.
         '''
         spacing = 5   # pixel gap between stats rows
@@ -1242,6 +1341,7 @@ class StatsRow(QtWidgets.QWidget):
             height = self.height
         
         self.drawHeight = height
+        self.setMinimumSize(self.width + 3, self.drawHeight + 3)
     
     def mousePressEvent(self, e):
         if self.extendable:
@@ -1255,9 +1355,10 @@ class StatsRow(QtWidgets.QWidget):
                 self.calcHeight()
                 for row in self.secondary_StatsRows:
                     row.hide()
-            self.setMinimumSize(self.width + 3, self.drawHeight + 3)
             self.update()
-        self.parent().reconfigHeight()
+        if isinstance(self.parent(), RangeStats):
+            self.parent().saveExtendedStatus(self.name, self.extended)
+            self.parent().update()
         
     def paintEvent(self, e):
         

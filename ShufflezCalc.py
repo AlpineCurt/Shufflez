@@ -20,6 +20,28 @@ def removeBlockedCombos(combos, board):
     
     return unblockedCombos
 
+def removeDuplicateRanks(board, hole_cards = None):
+    '''
+    Returns a list of cards [rank, suit] without any cards of the 
+    same rank.  Prioritizes the first card it encounters.
+    hole_cards needs to be a list of card lists i.e.
+    [[rank, suit], [rank, suit]]
+    '''
+    dup_free_board = []
+    ranks_present = set()
+    for card in board:
+        if card[0] not in ranks_present:
+            ranks_present.add(card[0])
+            dup_free_board.append(card)
+    
+    if hole_cards != None:
+        for card in hole_cards:
+            if card[0] not in ranks_present:
+                ranks_present.add(card[0])
+                dup_free_board.append(card)        
+    
+    return dup_free_board
+
 def card_histogram(combos):
     '''
     Returns a histogram of card ranks as a list. combos parameter is a list
@@ -304,16 +326,57 @@ def flush_check(combo, board):
     
     return False
 
-def nut_flush_card(board):
-    '''Returns the card that would make the highest possible flush
-    given the board.
-    Returns a list of [rank, suit]'''
+def nut_flush_check(combo, board):
+    '''Returns True if combo is used to make the nut flush
+    given the board.  Does not care if the combo actually makes a flush.
+    This method is run after ShufflezCalc.flush_check() and assumes the combo
+    makes a flush.'''
+    
+    nut_card = nut_flush_card(board, 1)
+    
+    if combo.cardA == nut_card or combo.cardB == nut_card:
+        return True
+    else:
+        return False
+
+def second_nut_flush_check(combo, board):
+    '''Returns True if combo is used to make the second nut flush
+    given the board.  Does not care if the combo actually makes a flush.
+    This method is run after ShufflezCalc.flush_check() and assumes the combo
+    makes a flush.'''
+    
+    nut_card = nut_flush_card(board, 2)
+    
+    if combo.cardA == nut_card or combo.cardB == nut_card:
+        return True
+    else:
+        return False
+    
+def third_nut_flush_check(combo, board):
+    '''Returns True if combo is used to make the nut flush
+    given the board.  Does not care if the combo actually makes a flush.
+    This method is run after ShufflezCalc.flush_check() and assumes the combo
+    makes a flush.'''
+    
+    nut_card = nut_flush_card(board, 3)
+    
+    if combo.cardA == nut_card or combo.cardB == nut_card:
+        return True
+    else:
+        return False
+
+def nut_flush_card(board, nut_rank):
+    '''Finds the specified nut flush card.  nut_rank is the nth nut flush card
+    you're looking for.  nut_rank of 1 will return the card that makes the
+    highest possible flush.  nut_rank of 2 will return 2nd nut flush card and so on.'''
     
     if len(board) < 3 or len(board) > 5:
         return None
     
-    '''Find the nut flush suit'''
+    '''Find the flush suit'''
     suits = [[], [], [], []]
+    
+    nut_found = 0
     
     for card in board:
         suits[card[1]].append(card)
@@ -327,19 +390,174 @@ def nut_flush_card(board):
                     if x in card:
                         break
                 else:
-                    rank = x
-                    break
+                    if nut_found == nut_rank - 1:
+                        rank = x
+                        break
+                    else:
+                        nut_found += 1
     return [rank, suit]
 
-def nut_flush_check(combo, board):
-    '''Returns True if combo is used to make the nut flush
-    given the board.  Does not care if the combo actually makes a flush.
-    This method is run after RangeStats.flush_check() and assumes the combo
-    makes a flush.'''
+def straight_check(combo, board):
+    '''Returns true if at least one hole card is used to make a
+    straight, or improve a straight on the board.'''
     
-    nut_card = nut_flush_card(board)
+    '''Check if straight is possible with the board'''
+    if nut_straight_rank(board, 1) == None:
+        return False
     
-    if combo.cardA == nut_card or combo.cardB == nut_card:
+    '''If straight on board, get highest hand rank'''
+    if board_straight_check(board):
+        board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+        board_max_rank = board_sorted[0][0]
+    else:
+        board_max_rank = -2
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    '''Add wheel ace to test_combo if necessary'''
+    for card in test_combo:
+        if card[0] == 12:
+            test_combo.append([-1, card[1]])
+    
+    '''Combine combo cards with board cards and remove duplicate ranks'''
+    test_board = removeDuplicateRanks(board, [combo.cardA, combo.cardB])
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+    
+    '''Add wheel ace if necessary'''
+    if test_board[0][0] == 12:
+        test_board.append([-1, test_board[0][1]])
+    
+    '''Check every group of five cards'''
+    ci = 0
+    
+    while len(test_board) - ci >= 5:
+        five_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2], 
+                          test_board[ci + 3], test_board[ci + 4]]
+        if card_histogram(five_card_test) == [1, 1, 1, 1, 1]:
+            if five_card_test[0][0] - five_card_test[4][0] == 4:
+                for card in test_combo:
+                    if card in five_card_test and card[0] > board_max_rank:
+                        return True
+        ci += 1
+    return False
+
+def nut_straight_check(combo, board):
+    '''Returns True if one of the hole cards is used to make
+    the nut straight.  Does not care if the hole cards actually
+    make a straight.  Dependent on being used after straight_check().'''
+    
+    nut_rank = nut_straight_rank(board, 1)
+    
+    if nut_rank == combo.cardA[0] or nut_rank == combo.cardB[0]:
         return True
     else:
         return False
+
+def second_nut_straight_check(combo, board):
+    '''Returns True if one of the hole cards is used to make
+    the second nut straight.  Does not care if the hole cards
+    actually make a straight.  Dependent on being used after
+    straight_check and after nut_straight_check'''
+    
+    second_nut_rank = nut_straight_rank(board, 2)
+    
+    if second_nut_rank == combo.cardA[0] or second_nut_rank == combo.cardB[0]:
+        return True
+    else:
+        return False
+
+def board_straight_check(board):
+    '''Returns True is a straight is present on the board.
+    Does not check for flushes or straight flushes.'''
+    
+    if len(board) < 5:
+        return False
+    if card_histogram(board) != [1, 1, 1, 1, 1]:
+        return False
+    
+    '''Sort by rank'''
+    test_board = sorted(board, key=lambda card: card[0], reverse=True)
+    
+    '''Add wheel ace if necessary'''
+    if test_board[0][0] == 12:
+        test_board.append([-1, test_board[0][1]])
+    
+    '''Check each sequence of five cards'''
+    ci = 0
+    while len(test_board) - ci >= 5:
+        if test_board[ci][0] - test_board[ci + 4][0] == 4:
+            return True
+        ci += 1
+    return False
+
+def nut_straight_rank(board, rank_needed):
+    '''Returns an integer of the rank required to make
+    the nut straight.  rank_needed is the nth nut straight
+    rank you're looking for.  i.e. nut_rank of 1 will return
+    the rank that makes a nut straight.  Only returns 1st or
+    second nut ranks.
+    
+    If rank_needed is 1 and None gets returned, it means a
+    straight is not possible on that board.'''
+    
+    if rank_needed != 1 and rank_needed != 2:
+        return None
+    
+    board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+    
+    '''Add wheel ace if necessary'''
+    if board_sorted[0][0] == 12:
+        board_sorted.append([-1, board_sorted[0][1]])
+    
+    '''Remove Duplicate ranks'''
+    test_board = board_sorted.copy()
+    board_sorted.clear()
+    
+    board_sorted = removeDuplicateRanks(test_board)
+    
+    '''Test each ordered group of three cards to see if they
+    make a straight possible'''
+    ci = 0
+    while len(board_sorted) - ci >= 3:
+        three_card_test = [board_sorted[ci], board_sorted[ci + 1], board_sorted[ci + 2]]
+        if card_histogram(three_card_test) == [1, 1, 1] and three_card_test[0][0] - three_card_test[2][0] <= 4:
+            board_top_rank = three_card_test[0][0]
+            gap = three_card_test[0][0] - three_card_test[2][0]
+            board_ranks = [three_card_test[0][0], three_card_test[1][0], three_card_test[2][0]]
+            break
+        ci += 1
+    else:
+        return None
+    
+    nut_rank = None
+    second_nut_rank = None
+    
+    if gap == 2:
+        rank_test_start = board_top_rank + 2
+    elif gap == 3:
+        rank_test_start = board_top_rank + 1
+    elif gap == 4:
+        rank_test_start = board_top_rank - 1
+    else:
+        return 'Error finding nut straight rank: Gap too large'
+    
+    '''Start at rank_test_start and count backwards'''
+    for rank_test in range(rank_test_start, 0, -1):
+        if rank_test not in board_ranks and rank_test <= 12:
+            if nut_rank == None:
+                nut_rank = rank_test
+            else:
+                if board_sorted[-1][0] == -1 and len(board) == 3:
+                    second_nut_rank = None
+                elif board_sorted[0][0] == 12 and len(board) < 5:
+                    second_nut_rank = None
+                elif gap == 4 and board_sorted[-1][0] == three_card_test[2][0]:
+                    second_nut_rank = None
+                else:
+                    second_nut_rank = rank_test
+                break
+    
+    if rank_needed == 1:
+        return nut_rank
+    elif rank_needed == 2:
+        return second_nut_rank

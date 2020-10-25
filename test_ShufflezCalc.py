@@ -47,6 +47,32 @@ class TestCardHist(unittest.TestCase):
         self.assertEqual(ShufflezCalc.card_histogram(cards10), [4])
 
 
+class TestRemoveDuplicateRanks(unittest.TestCase):
+    
+    def test_remove_duplicate_ranks(self):
+        
+        '''Qc Js Tc Qd Jd'''
+        board = [[10, 2], [9, 2], [8, 2], [10, 1], [9, 1]]
+        self.assertEqual(ShufflezCalc.removeDuplicateRanks(board), [[10, 2], [9, 2], [8, 2]])
+        
+        '''Ac Th 5d Tc 5s'''
+        board = [[12, 2], [8, 0], [3, 1], [8, 2], [3, 3]]
+        self.assertEqual(ShufflezCalc.removeDuplicateRanks(board), [[12, 2], [8, 0], [3, 1]])
+        
+        '''Kh Tc 3d Ac Ks    Kd 8d'''
+        board = [[11, 0], [8, 2], [1, 1], [12, 2], [11, 3]]
+        self.assertEqual(ShufflezCalc.removeDuplicateRanks(board, [[11, 1], [6, 1]]), [[11, 0], [8, 2], [1, 1], [12, 2], [6, 1]])
+        
+        '''all seven cards are unique'''
+        '''Ts 9h 7d Qh Ad    4c 3c'''
+        board = [[8, 3], [7, 0], [5, 1], [10, 0], [12, 1]]
+        self.assertEqual(ShufflezCalc.removeDuplicateRanks(board, [[2, 2], [1, 2]]), [[8, 3], [7, 0], [5, 1], [10, 0], [12, 1], [2, 2], [1, 2]])
+        
+        '''pocket pair rank appears on board'''
+        '''Ts 9h 7d Qh Ad     9d 9s'''
+        self.assertEqual(ShufflezCalc.removeDuplicateRanks(board, [[7, 1], [7, 3]]), [[8, 3], [7, 0], [5, 1], [10, 0], [12, 1]])
+
+
 class TestBoardStrFlushCheck(unittest.TestCase):
     
     def test_board_str_flush(self):
@@ -136,6 +162,12 @@ class TestStrFlushCheck(unittest.TestCase):
         
         '''As Kd 9d 6s 3c   As 5c, no possible str flush'''
         self.assertEqual(ShufflezCalc.str_flush_check(combo2, board5), False)
+        
+        '''Ac Kc'''
+        combo = Combo([12, 2], [11, 2])
+        '''Qc Jc Tc Qd Jd'''
+        board = [[10, 2], [9, 2], [8, 2], [10, 1], [9, 1]]
+        self.assertTrue(ShufflezCalc.str_flush_check(combo, board))
 
 
 class TestBoardQuadsCheck(unittest.TestCase):
@@ -356,18 +388,383 @@ class TestNutFlushCard(unittest.TestCase):
     
     def test_nut_flush_card(self):
         
-        '''7s 3s 6s'''
+        '''Teesting for nut flush card'''
+        
+        '''7s 3s 6s -> As'''
         board1 = [[5, 3], [1, 3], [4, 3]]
-        self.assertEqual(ShufflezCalc.nut_flush_card(board1), [12, 3])
+        self.assertEqual(ShufflezCalc.nut_flush_card(board1, 1), [12, 3])
         
-        '''7s 3s As'''
+        '''7s 3s As -> Ks'''
         board2 = [[5, 3], [1, 3], [12, 3]]
-        self.assertEqual(ShufflezCalc.nut_flush_card(board2), [11, 3])
+        self.assertEqual(ShufflezCalc.nut_flush_card(board2, 1), [11, 3])
         
-        '''Jc Kc Ac 5c'''
+        '''Jc Kc Ac 5c -> Qs'''
         board3 = [[9, 2], [11, 2], [12, 2], [3, 2]]
-        self.assertEqual(ShufflezCalc.nut_flush_card(board3), [10, 2])
+        self.assertEqual(ShufflezCalc.nut_flush_card(board3, 1), [10, 2])
         
-        '''Qc Kc Ac 5c'''
+        '''Qc Kc Ac 5c -> Jc'''
         board4 = [[10, 2], [11, 2], [12, 2], [3, 2]]
-        self.assertEqual(ShufflezCalc.nut_flush_card(board4), [9, 2])     
+        self.assertEqual(ShufflezCalc.nut_flush_card(board4, 1), [9, 2])
+    
+    def test_second_nut_flush_card(self):
+        
+        '''Testing for second nut flush card'''
+        
+        '''7s 3s 6s -> Ks'''
+        board1 = [[5, 3], [1, 3], [4, 3]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board1, 2), [11, 3])
+        
+        '''7s 3s As -> Qs'''
+        board2 = [[5, 3], [1, 3], [12, 3]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board2, 2), [10, 3])
+        
+        '''Jc Kc Ac 5c -> Tc'''
+        board3 = [[9, 2], [11, 2], [12, 2], [3, 2]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board3, 2), [8, 2])
+        
+        '''Qc Kc Ac 5c -> Tc'''
+        board4 = [[10, 2], [11, 2], [12, 2], [3, 2]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board4, 2), [8, 2])
+    
+    def test_third_nut_flush_card(self):
+        
+        '''Testing for third nut flush card'''
+        
+        '''7s 3s 6s -> Qs'''
+        board1 = [[5, 3], [1, 3], [4, 3]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board1, 3), [10, 3])
+        
+        '''7s 3s As -> Js'''
+        board2 = [[5, 3], [1, 3], [12, 3]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board2, 3), [9, 3])
+        
+        '''Jc Kc Ac 5c -> 9c'''
+        board3 = [[9, 2], [11, 2], [12, 2], [3, 2]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board3, 3), [7, 2])
+        
+        '''Qc Kc Ac 5c -> 9c'''
+        board4 = [[10, 2], [11, 2], [12, 2], [3, 2]]
+        self.assertEqual(ShufflezCalc.nut_flush_card(board4, 3), [7, 2])
+
+        
+class TestBoardStraightCheck(unittest.TestCase):
+    
+    def test_board_straight(self):
+        
+        '''6s 9d Tc'''
+        board = [[4, 3], [7, 1], [8, 2]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), False)
+        
+        '''Jc Th 9h 6c'''
+        board = [[9, 2], [8, 0], [7, 0], [4, 2]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), False)
+        
+        '''9d 7d 8s Tc Jh'''
+        board = [[7, 1], [5, 1], [6, 3], [8, 2], [9, 0]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), True)
+        
+        '''Td Jd Qd Kc Ac'''
+        board = [[8, 1], [9, 1], [10, 1], [11, 2], [12, 2]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), True)
+        
+        '''3c 5c As 2d 4c'''
+        board = [[1, 2], [3, 2], [12, 3], [0, 1], [2, 2]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), True)
+        
+        '''As 9s Js 9h 6c'''
+        board = [[12, 3], [7, 3], [9, 3], [7, 0], [4, 2]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), False)
+        
+        '''Kc Kd Jc 9d 9s'''
+        board = [[11, 2], [11, 1], [9, 2], [7, 1], [7, 3]]
+        self.assertEqual(ShufflezCalc.board_straight_check(board), False)
+
+
+class TestNutStraightRank(unittest.TestCase):
+    
+    def test_nut_straight_rank(self):
+        
+        '''NUT STRAIGHT RANKS'''
+        
+        '''Jc Th 9d -> 11'''
+        board = [[9, 2], [8, 0], [7, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 11)
+        
+        '''Kc Qc Jd -> 12'''
+        board = [[11, 2], [10, 2], [9, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 12)
+        
+        '''Kc Jd Td -> 12'''
+        board = [[11, 2], [9, 1], [8, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 12)
+        
+        '''8c 7d 5s -> 7'''
+        board = [[6, 2], [5, 1], [3, 3]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 7)
+        
+        '''3d 2h Ac -> 3'''
+        board = [[1, 1], [0, 0], [12, 2]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 3)
+        
+        '''As Kc Qh -> 9'''
+        board = [[12, 3], [11, 2], [10, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 9)
+        
+        '''Jc 7d Td -> 7'''
+        board = [[9, 2], [8, 1], [5, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 7)
+        
+        '''4d 3d 6h -> 5'''
+        board = [[2, 1], [1, 1], [4, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 5)
+        
+        '''Qh Jc Td 9s 8h -> 12'''
+        board = [[10, 0], [9, 2], [8, 1], [7, 3], [6, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 12)
+        
+        '''6d 7c 8h 9s Qh -> 9'''
+        board = [[4, 1], [5, 2], [6, 0], [7, 3], [10, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 9)
+        
+        '''7c 6d 5s Jc Qh -> 7'''
+        board = [[5, 2], [4, 1], [3, 3], [9, 2], [10, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 7)
+        
+        '''Qh Jc 4c 3d 7c -> 4'''
+        board = [[10, 0], [9, 2], [2, 2], [1, 1], [5, 2]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 4)
+        
+        '''6d 9s Qc Ah 2h'''
+        board = [[4, 1], [7, 3], [10, 2], [12, 0], [0, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), None)
+        
+        '''Qh Jc Tc Jd Td'''
+        board = [[10, 0], [9, 2], [8, 2], [9, 1], [8, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 1), 12)
+        
+        '''SECOND NUT STRAIGHT RANKS'''
+        
+        '''Jc Th 9d -> 10'''
+        board = [[9, 2], [8, 0], [7, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 10)
+        
+        '''Kc Qc Jd -> 8'''
+        board = [[11, 2], [10, 2], [9, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 8)
+        
+        '''Kc Jd Td -> 10'''
+        board = [[11, 2], [9, 1], [8, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 10)
+        
+        '''8c 7d 5s -> 4'''
+        board = [[6, 2], [5, 1], [3, 3]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 4)
+        
+        '''3d 2h Ac -> None'''
+        board = [[1, 1], [0, 0], [12, 2]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), None)
+        
+        '''As Kc Qh -> None'''
+        board = [[12, 3], [11, 2], [10, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), None)
+        
+        '''Jc 7d Td -> None'''
+        board = [[9, 2], [8, 1], [5, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), None)
+        
+        '''4d 3d 6h -> 3'''
+        board = [[2, 1], [1, 1], [4, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 3)
+        
+        '''Qh Jc Td 9s 8h -> 11'''
+        board = [[10, 0], [9, 2], [8, 1], [7, 3], [6, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 11)
+        
+        '''6d 7c 8h 9s Qh -> 8'''
+        board = [[4, 1], [5, 2], [6, 0], [7, 3], [10, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 8)
+        
+        '''7c 6d 5s Jc Qh -> 6'''
+        board = [[5, 2], [4, 1], [3, 3], [9, 2], [10, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 6)
+        
+        '''Qh Jc 4c 3d 7c -> None'''
+        board = [[10, 0], [9, 2], [2, 2], [1, 1], [5, 2]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), None)
+        
+        '''6d 9s Qc Ah 2h'''
+        board = [[4, 1], [7, 3], [10, 2], [12, 0], [0, 0]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), None)
+        
+        '''Ah Kc Td 9s 8s -> 9'''
+        board = [[12, 0], [11, 2], [8, 1], [7, 3], [6, 3]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 9)
+        
+        '''Ks Qd 8c 5s 4s -> None'''
+        board = [[11, 3], [10, 1], [6, 2], [3, 3], [2, 3]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), None)
+        
+        '''Qh Jc Tc Jd Td'''
+        board = [[10, 0], [9, 2], [8, 2], [9, 1], [8, 1]]
+        self.assertEqual(ShufflezCalc.nut_straight_rank(board, 2), 11)
+
+
+class TestStraightCheck(unittest.TestCase):
+    
+    def test_straight_check(self):        
+        
+        '''Kc Qh'''
+        combo = Combo([11, 2], [10, 0])
+        
+        '''Boards with NO straight possible'''
+        
+        '''Qh 8s 4c'''
+        board = [[10, 0], [6, 3], [2, 2]]
+        self.assertFalse(ShufflezCalc.straight_check(combo, board))
+        
+        '''5d 4d Qc As 9s'''
+        board = [[3, 1], [2, 1], [10, 2], [12, 3], [7, 3]]
+        self.assertFalse(ShufflezCalc.straight_check(combo, board))
+        
+        '''Jc Td Ts 6s 5c'''
+        board = [[9, 2], [8, 1], [8, 3], [4, 3], [3, 2]]
+        self.assertFalse(ShufflezCalc.straight_check(combo, board))
+        
+        '''Boards with possible straight'''
+        
+        '''Jc Td 9s'''
+        board = [[9, 2], [8, 1], [7, 3]]
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''Ah Td Jc'''
+        board = [[12, 0], [8, 1], [9, 2]]
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''Ah 9s Tc'''
+        board = [[12, 0], [7, 3], [8, 1]]
+        self.assertFalse(ShufflezCalc.straight_check(combo, board))
+        
+        #######
+        
+        '''6d 5d'''
+        combo = Combo([4, 1], [3, 1])
+        
+        '''Qh Jc 4c 3d 7c'''
+        board = [[10, 0], [9, 2], [2, 2], [1, 1], [5, 2]]
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''Ah 5c'''
+        combo = Combo([12, 0], [3, 2])
+        
+        '''4d 3s 2s'''
+        board = [[2, 1], [1, 3], [0, 3]]
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''Hole cards do NOT imporove board straight'''
+        
+        '''4h 4c  Hole cards do NOT imporove board straight'''
+        combo = Combo([2, 0], [2, 2])
+        
+        '''9h 8c 7d 6s 5c'''
+        board = [[7, 0], [6, 2], [5, 1], [4, 3], [3, 3]]
+        self.assertFalse(ShufflezCalc.straight_check(combo, board))
+
+        '''Jh Ts  Hole cards DO imporove board straight'''
+        combo = Combo([9, 0], [8, 3])
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''Ah As'''
+        combo = Combo([12, 0], [12, 3])
+        
+        '''3s 2s 5d 4s'''
+        board = [[1, 3], [0, 3], [3, 1], [2, 3]]
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        
+        '''Qh Qc Jc Jd Td'''
+        board = [[10, 0], [10, 2], [9, 2], [9, 1], [8, 1]]
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+        '''9s 8s'''
+        combo = Combo([7, 3], [6, 3])
+        self.assertTrue(ShufflezCalc.straight_check(combo, board))
+        
+
+class TestNutStraightCheck(unittest.TestCase):
+    
+    def test_nut_straight_check(self):       
+        
+        '''Kc Qh'''
+        combo = Combo([11, 2], [10, 0])          
+        
+        '''Jc Td 9s'''
+        board = [[9, 2], [8, 1], [7, 3]]
+        self.assertTrue(ShufflezCalc.nut_straight_check(combo, board))
+        
+        '''Qh 8h'''
+        combo = Combo([10, 0], [6, 0])
+        self.assertFalse(ShufflezCalc.nut_straight_check(combo, board))
+        
+        '''Kc Qh'''
+        combo = Combo([11, 2], [10, 0])         
+        
+        '''Ah Td Jc'''
+        board = [[12, 0], [8, 1], [9, 2]]
+        self.assertTrue(ShufflezCalc.nut_straight_check(combo, board))
+        
+        '''6d 5d'''
+        combo = Combo([4, 1], [3, 1])
+        
+        '''Qh Jc 4c 3d 7c'''
+        board = [[10, 0], [9, 2], [2, 2], [1, 1], [5, 2]]  
+        self.assertTrue(ShufflezCalc.nut_straight_check(combo, board))
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        
+        '''Qh Qc Jc Jd Td'''
+        board = [[10, 0], [10, 2], [9, 2], [9, 1], [8, 1]]
+        self.assertTrue(ShufflezCalc.nut_straight_check(combo, board))
+        
+        '''9s 8s'''
+        combo = Combo([7, 3], [6, 3])
+        self.assertFalse(ShufflezCalc.nut_straight_check(combo, board))
+        
+        '''4h 4c'''
+        combo = Combo([2, 0], [2, 2])
+        
+        '''9h 8c 7d 6s 5c'''
+        board = [[7, 0], [6, 2], [5, 1], [4, 3], [3, 3]]
+        self.assertFalse(ShufflezCalc.nut_straight_check(combo, board))
+
+
+class TestSecondNutStraight(unittest.TestCase):
+    
+    def test_second_nut_straight(self):
+        
+        '''Qh 8h'''
+        combo = Combo([10, 0], [6, 0])
+        
+        '''Jc Td 9s'''
+        board = [[9, 2], [8, 1], [7, 3]]
+        self.assertTrue(ShufflezCalc.second_nut_straight_check(combo, board))
+        
+        '''9s 8s'''
+        combo = Combo([7, 3], [6, 3])
+        
+        '''Qh Qc Jc Jd Td'''
+        board = [[10, 0], [10, 2], [9, 2], [9, 1], [8, 1]]
+        self.assertFalse(ShufflezCalc.second_nut_straight_check(combo, board))
+        
+        '''9h 8c 7d 6s 5c'''
+        board = [[7, 0], [6, 2], [5, 1], [4, 3], [3, 3]]        
+        
+        '''4h 4c'''
+        combo = Combo([2, 0], [2, 2])
+        self.assertFalse(ShufflezCalc.second_nut_straight_check(combo, board))
+        
+        '''Tc Td'''
+        combo = Combo([8, 2], [8, 1])
+        self.assertTrue(ShufflezCalc.second_nut_straight_check(combo, board))
