@@ -47,9 +47,23 @@ import ShufflezWidgets
 
 #print(ShufflezCalc.straight_check(combo, board))
 
-'''Kc Qh'''
-combo = ShufflezWidgets.Combo([11, 2], [10, 0])        
+#'''Kc Qh'''
+#combo = ShufflezWidgets.Combo([11, 2], [10, 0])        
 
-'''Jc Td 9s'''
-board = [[9, 2], [8, 1], [7, 3]]
-print(ShufflezCalc.nut_straight_check(combo, board))
+#'''Jc Td 9s'''
+#board = [[9, 2], [8, 1], [7, 3]]
+#print(ShufflezCalc.nut_straight_check(combo, board))
+
+#'''Td 2c Kc 8s 6s'''
+#board = [[8, 1], [0, 2], [11, 2], [6, 3], [4, 3]]
+
+#'''Kh Th'''
+#combo = ShufflezWidgets.Combo([11, 0], [8, 0])
+#print(ShufflezCalc.two_pair_check(combo, board))
+
+'''Kc Td 6s 8s 8c'''
+board = [[11, 2], [8, 1], [4, 3], [6, 3], [6, 2]]
+
+'''Th 6h'''
+combo = ShufflezWidgets.Combo([8, 0], [4, 0])
+print(ShufflezCalc.two_pair_check(combo, board))

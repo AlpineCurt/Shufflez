@@ -768,3 +768,232 @@ class TestSecondNutStraight(unittest.TestCase):
         '''Tc Td'''
         combo = Combo([8, 2], [8, 1])
         self.assertTrue(ShufflezCalc.second_nut_straight_check(combo, board))
+
+
+class TestThreeOfAKindCheck(unittest.TestCase):
+    
+    def test_thee_of_a_kind_check(self):
+        
+        '''8d, 8h, 8s   Ah 9h'''
+        board = [[6, 1], [6, 0], [6, 3]]
+        combo = Combo([12, 0], [7, 0])
+        self.assertFalse(ShufflezCalc.three_of_a_kind_check(combo, board))
+        
+        '''Tc 9d 4s   Th Ts'''
+        board = [[8, 2], [7, 1], [2, 3]]
+        combo = Combo([8, 0], [8, 3])
+        self.assertTrue(ShufflezCalc.three_of_a_kind_check(combo, board))
+        
+        '''Tc 9d 9s   Ah 9h'''
+        board = [[8, 2], [7, 1], [7, 3]]
+        combo = Combo([12, 0], [7, 0])
+        self.assertTrue(ShufflezCalc.three_of_a_kind_check(combo, board))
+        
+        '''8s 5d 3h   9h 9s'''
+        board = [[6, 3], [3, 1], [1, 0]]
+        combo = Combo([7, 0], [7, 3])
+        self.assertFalse(ShufflezCalc.three_of_a_kind_check(combo, board))
+        
+
+class TestBoardThreeOfAKindCheck(unittest.TestCase):
+    
+    def test_board_three_of_a_kind_check(self):
+        
+        '''8d, 8h, 8s'''
+        board = [[6, 1], [6, 0], [6, 3]]
+        self.assertTrue(ShufflezCalc.board_three_of_a_kind_check(board))
+        
+        '''8d, 8h, 7s'''
+        board = [[6, 1], [6, 0], [7, 3]]
+        self.assertFalse(ShufflezCalc.board_three_of_a_kind_check(board))
+        
+        '''4d Tc Th 4s'''
+        board = [[2, 1], [8, 2], [8, 0], [2, 3]]
+        self.assertFalse(ShufflezCalc.board_three_of_a_kind_check(board))
+        
+        '''Kd Kh 7c Kc'''
+        board = [[11, 1], [11, 0], [5, 2], [11, 2]]
+        self.assertTrue(ShufflezCalc.board_three_of_a_kind_check(board))
+        
+        '''2d Ah 2s Td 2s'''
+        board = [[0, 1], [12, 0], [0, 3], [8, 1], [0, 3]]
+        self.assertTrue(ShufflezCalc.board_three_of_a_kind_check(board))
+    
+
+class TestSetCheck(unittest.TestCase):
+    
+    def test_set_check(self):
+        
+        '''Tc 9d 4s   Th Ts'''
+        board = [[8, 2], [7, 1], [2, 3]]
+        combo = Combo([8, 0], [8, 3])
+        self.assertTrue(ShufflezCalc.set_check(combo, board))
+        
+        '''combo 9h 9s'''
+        combo = Combo([7, 0], [7, 3])
+        self.assertTrue(ShufflezCalc.set_check(combo, board))
+        
+        '''Tc 9d 9s   Ah 9h'''
+        board = [[8, 2], [7, 1], [7, 3]]
+        combo = Combo([12, 0], [7, 0])
+        self.assertFalse(ShufflezCalc.set_check(combo, board))
+        
+        '''8d, 8h, 8s'''
+        board = [[6, 1], [6, 0], [6, 3]]
+        self.assertFalse(ShufflezCalc.set_check(combo, board))
+        
+        '''8s 5d 3h   9h 9s'''
+        board = [[6, 3], [3, 1], [1, 0]]
+        combo = Combo([7, 0], [7, 3])
+        self.assertFalse(ShufflezCalc.set_check(combo, board))
+
+
+class TestTwoPairCheck(unittest.TestCase):
+    
+    def test_two_pair_check(self):
+        
+        '''Td 2c Kc 8s 6s'''
+        board = [[8, 1], [0, 2], [11, 2], [6, 3], [4, 3]]
+        
+        '''Kh Th'''
+        combo = Combo([11, 0], [8, 0])
+        self.assertTrue(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Kh 8h'''
+        combo = Combo([11, 0], [6, 0])
+        self.assertTrue(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''6h 2h'''
+        combo = Combo([4, 0], [0, 0])
+        self.assertTrue(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Qh Qd'''
+        combo = Combo([10, 0], [10, 1])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Kc Td 6s 8s 8c'''
+        board = [[11, 2], [8, 1], [4, 3], [6, 3], [6, 2]]
+        
+        '''Kh Th'''
+        combo = Combo([11, 0], [8, 0])
+        self.assertTrue(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Th 6h'''
+        combo = Combo([8, 0], [4, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Kh 6h'''
+        combo = Combo([11, 0], [4, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Ah Ad'''
+        combo = Combo([12, 0], [12, 1])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Kc Td Ts 8s 8c'''
+        board = [[11, 2], [8, 1], [8, 3], [6, 3], [6, 2]]
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Qh Qd'''
+        combo = Combo([10, 0], [10, 1])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Kc Td 5c Ts 8s'''
+        board = [[11, 2], [8, 1], [3, 2], [8, 3], [6, 3]]
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Kh 8h'''
+        combo = Combo([11, 0], [6, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''Ah Ad'''
+        combo = Combo([12, 0], [12, 1])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''8h 5h'''
+        combo = Combo([6, 0], [3, 0])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+        
+        '''4h 4s'''
+        combo = Combo([2, 0], [2, 3])
+        self.assertFalse(ShufflezCalc.two_pair_check(combo, board))
+
+
+class TestOverpairCheck(unittest.TestCase):
+    
+    def test_overpair_check(self):
+        
+        '''Qh 4h Ts 7d 6c'''
+        board = [[10, 0], [2, 0], [8, 3], [5, 1], [6, 2]]
+        
+        '''Ah Ad'''
+        combo = Combo([12, 0], [12, 1])
+        self.assertTrue(ShufflezCalc.overpair_check(combo, board))
+        
+        '''2d 2s'''
+        combo = Combo([0, 1], [0, 3])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''Jc Js'''
+        combo = Combo([9, 2], [9, 3])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''As Qs'''
+        combo = Combo([12, 3], [10, 3])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''7c 7d 2s'''
+        board = [[5, 2], [5, 1], [0, 3]]
+        
+        '''Ah Ad'''
+        combo = Combo([12, 0], [12, 1])
+        self.assertTrue(ShufflezCalc.overpair_check(combo, board))
+        
+        '''Jc Js'''
+        combo = Combo([9, 2], [9, 3])
+        self.assertTrue(ShufflezCalc.overpair_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''3c 2d'''
+        combo = Combo([1, 2], [0, 1])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''9h 9c 7c 7d'''
+        board = [[7, 0], [7, 2], [5, 2], [5, 1]]
+        
+        '''Jc Js'''
+        combo = Combo([9, 2], [9, 3])
+        self.assertTrue(ShufflezCalc.overpair_check(combo, board))
+        
+        '''2d 2s'''
+        combo = Combo([0, 1], [0, 3])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))
+        
+        '''As Qs'''
+        combo = Combo([12, 3], [10, 3])
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))        

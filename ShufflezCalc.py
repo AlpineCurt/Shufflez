@@ -561,3 +561,101 @@ def nut_straight_rank(board, rank_needed):
         return nut_rank
     elif rank_needed == 2:
         return second_nut_rank
+
+def three_of_a_kind_check(combo, board):
+    '''Returns True if at least one of the hole cards
+    is used to make three of a kind.'''
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    test_board = board.copy()
+    test_board.append(combo.cardA)
+    test_board.append(combo.cardB)
+    
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+    
+    ci = 0
+    
+    while len(test_board) - ci >= 3:
+        three_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2]]
+        if card_histogram(three_card_test) == [3]:
+            if test_combo[0] in three_card_test or test_combo[1] in three_card_test:
+                return True
+        ci += 1
+    return False
+
+def board_three_of_a_kind_check(board):
+    '''Returns True if three of a kind is present on the board.
+    Is this necessary?  If true, any pairing of a hole card makes
+    a full house which will get picked up by an earlier check.'''
+    
+    if 3 in card_histogram(board):
+        return True
+    else:
+        return False
+
+def set_check(combo, board):
+    '''Returns True if both hole cards are used to make
+    three of a kind.
+    combo is a single Combo object; board is a list of cards as lists'''
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    test_board = board.copy()
+    test_board.append(combo.cardA)
+    test_board.append(combo.cardB)
+
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+
+    ci = 0
+
+    while len(test_board) - ci >= 3:
+        three_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2]]
+        if card_histogram(three_card_test) == [3]:
+            if test_combo[0] in three_card_test and test_combo[1] in three_card_test:
+                return True
+        ci += 1
+    return False
+
+def two_pair_check(combo, board):
+    '''Returns True if both hole cards are used to make Two Pair.
+    Two Pair is invalid if board is paired higher than either hole card.'''
+    
+    '''Find any pairs on the board'''
+    single_board_ranks = []
+    paired_board_ranks = [0]
+    
+    for card in board:
+        if card[0] not in single_board_ranks:
+            single_board_ranks.append(card[0])
+        else:
+            paired_board_ranks.append(card[0])
+    
+    paired_board_ranks = sorted(paired_board_ranks, reverse=True)
+    
+    '''If either hole card's rank is less than higest board pair, no two pair possible.'''
+    if combo.cardA[0] < paired_board_ranks[0] or combo.cardB[0] < paired_board_ranks[0]:
+        return False
+    
+    if combo.cardA[0] in single_board_ranks and combo.cardB[0] in single_board_ranks:
+        return True
+    
+    return False
+
+def overpair_check(combo, board):
+    '''Returns True if hole cards are paired and higher rank than highest
+    board card. Does not check for made hand on board.
+    Dependent on being used after checking for higher made hands.'''
+    
+    if combo.cardA[0] != combo.cardB[0]:
+        return False
+    
+    board_high_rank = 0
+    for card in board:
+        if card[0] > board_high_rank:
+            board_high_rank = card[0]
+    
+    if combo.cardA[0] > board_high_rank:
+        return True
+    else:
+        return False
