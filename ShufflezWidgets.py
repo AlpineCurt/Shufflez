@@ -707,7 +707,7 @@ class RangeText(QtWidgets.QTextEdit):
             return combo_list
             
         except:
-            print('rangeToList Invalid input')
+            return []
     
     def rangeListToString(self, InputComboList):
         '''
@@ -975,6 +975,12 @@ class RangeStats(QtWidgets.QWidget):
         made_hands['Three of a Kind'] = False
         made_hands['Two Pair'] = False
         made_hands['Overpair'] = False
+        made_hands['Top Pair'] = False
+        made_hands['PP Below TP'] = False
+        made_hands['Middle Pair'] = False
+        made_hands['Weak Pair'] = False
+        made_hands['Ace High'] = False
+        made_hands['Overcards'] = False
         
         return made_hands
         
@@ -1066,6 +1072,14 @@ class RangeStats(QtWidgets.QWidget):
         three_of_a_kind['Set'] = []
         three_of_a_kind['Trips'] = []
         
+        top_pair = {}
+        top_pair['Top Kicker'] = []
+        top_pair['Second Kicker'] = []
+        top_pair['Third Kicker'] = []
+        top_pair['Middle Kicker'] = []
+        top_pair['Weak Kicker'] = []
+        
+        
         '''Check board for made hands to disallow lesser hand types from being checked'''
         
         '''Iterate through each made hand type in order from highest to lowest.
@@ -1149,6 +1163,44 @@ class RangeStats(QtWidgets.QWidget):
                 made_hands['Overpair'].append(combo)
                 continue
             
+            '''Top Pair'''
+            if ShCalc.top_pair_check(combo, board):
+                made_hands['Top Pair'].append(combo)
+                if ShCalc.top_pair_top_kicker(combo, board):
+                    top_pair['Top Kicker'].append(combo)
+                elif ShCalc.top_pair_second_kicker(combo, board):
+                    top_pair['Second Kicker'].append(combo)
+                elif ShCalc.top_pair_third_kicker(combo, board):
+                    top_pair['Third Kicker'].append(combo)
+                elif ShCalc.top_pair_middle_kicker(combo, board):
+                    top_pair['Middle Kicker'].append(combo)
+                else:
+                    top_pair['Weak Kicker'].append(combo)
+                continue
+            
+            '''PP Below TP'''
+            if ShCalc.pp_below_tp_check(combo, board):
+                made_hands['PP Below TP'].append(combo)
+                continue
+            
+            '''Middle Pair'''
+            if ShCalc.middle_pair_check(combo, board):
+                made_hands['Middle Pair'].append(combo)
+                continue
+            
+            '''Weak Pair'''
+            if ShCalc.weak_pair_check(combo, board):
+                made_hands['Weak Pair'].append(combo)
+                continue
+            
+            '''Ace High'''
+            if ShCalc.ace_high_check(combo):
+                made_hands['Ace High'].append(combo)
+            
+            '''Overcards'''
+            if ShCalc.overcards_check(combo, board):
+                made_hands['Overcards'].append(combo)
+                
             
         '''Iterate through each drawing or other type of hand.
         Each combo could belong to more than one of these.'''
@@ -1170,6 +1222,11 @@ class RangeStats(QtWidgets.QWidget):
         if three_of_a_kind_total_combos > 0:
             three_of_a_kind_stats = RangeStats.dictToStatsRows(three_of_a_kind, total_combos)
             made_hands['Three of a Kind'].append(three_of_a_kind_stats)
+        
+        top_pair_total_combos = len(made_hands['Top Pair'])
+        if top_pair_total_combos > 0:
+            top_pair_stats = RangeStats.dictToStatsRows(top_pair, total_combos)
+            made_hands['Top Pair'].append(top_pair_stats)
         
         finalStats = RangeStats.dictToStatsRows(made_hands, total_combos)
          
@@ -1381,9 +1438,6 @@ class StatsRow(QtWidgets.QWidget):
                     row.hide()
             self.update()
             self.extendSignal.emit()
-        #if isinstance(self.parent(), RangeStats):
-            #self.parent().saveExtendedStatus(self.name, self.extended)
-            #self.parent().update()
         
     def paintEvent(self, e):
         

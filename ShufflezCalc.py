@@ -659,3 +659,203 @@ def overpair_check(combo, board):
         return True
     else:
         return False
+
+def top_pair_check(combo, board):
+    '''Returns True if one of the hole cards is used to make top pair.
+    Does not check for made hand on baord.  Dependent on being used
+    after checking for other made hands.'''
+    
+    '''If board top rank is paired, no top pair is possible'''
+    board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+    
+    if board_sorted[0][0] == board_sorted[1][0]:
+        return False
+    
+    '''Pocket pair cannnot be top pair'''
+    if combo.cardA[0] == combo.cardB[0]:
+        return False
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    if combo.cardA[0] == board_sorted[0][0]:
+        return True
+    elif combo.cardB[0] == board_sorted[0][0]:
+        return True
+    else:
+        return False
+
+def top_pair_kicker_rank(board, rank_needed):
+    '''Returns an integer of the rank that would make the desired type
+    of top pair.  rank_needed is the nth top pair kicker rank needed.
+    i.e. 1 will return kicker rank needed for TPTK.  2 will return
+    top pair, second kicker and so on.'''
+    
+    board_ranks = set()
+    
+    for card in board:
+        board_ranks.add(card[0])
+    
+    desired_rank = rank_needed - 1
+    rank_count = 0
+    
+    for i in range(12, 0, -1):
+        if i not in board_ranks:
+            if desired_rank == rank_count:
+                return i
+            else:
+                rank_count += 1
+
+def top_pair_top_kicker(combo, board):
+    '''Returns True if the hole cards make top pair top kicker given
+    the board.  Dependent on top_pair_check already being done.'''
+    
+    kicker_rank = top_pair_kicker_rank(board, 1)
+    
+    if kicker_rank == combo.cardA[0] or kicker_rank == combo.cardB[0]:
+        return True
+    else:
+        return False
+
+def top_pair_second_kicker(combo, board):
+    '''Returns True if the hole cards make top pair second kicker
+    given the board.  Dependent on top_pair_check and
+    top_pair_top_kicker already being done.'''
+    
+    kicker_rank = top_pair_kicker_rank(board, 2)
+    
+    if kicker_rank == combo.cardA[0] or kicker_rank == combo.cardB[0]:
+        return True
+    else:
+        return False    
+
+def top_pair_third_kicker(combo, board):
+    '''Returns True if the hole cards make top pair second kicker
+    given the board.  Dependent on top_pair_check and
+    top_pair_top_kicker/second_kicker already being done.'''
+    
+    kicker_rank = top_pair_kicker_rank(board, 3)
+    
+    if kicker_rank == combo.cardA[0] or kicker_rank == combo.cardB[0]:
+        return True
+    else:
+        return False
+    
+def top_pair_middle_kicker(combo, board):
+    '''Returns True if the hole cards make top pair middle kicker
+    given the board. Middle kicker is 4th-6th kicker'''
+    
+    kickers = set()
+    kickers.add(top_pair_kicker_rank(board, 4))
+    kickers.add(top_pair_kicker_rank(board, 5))
+    kickers.add(top_pair_kicker_rank(board, 6))
+    
+    if combo.cardA[0] in kickers or combo.cardB[0] in kickers:
+        return True
+    else:
+        return False
+
+def pp_below_tp_check(combo, board):
+    '''Returns True if hole cards are paired but the rank is below
+    the highest board card, but above the second highest board card.'''
+    
+    '''If hole cards are not paired, no pp possible.'''
+    if combo.cardA[0] != combo.cardB[0]:
+        return False
+    
+    dup_free_board = removeDuplicateRanks(board)
+    board_sorted = sorted(dup_free_board, key=lambda card: card[0], reverse=True)
+    
+    board_high_rank = board_sorted[0][0]
+    if len(board_sorted) > 1:
+        board_second_high_rank = board_sorted[1][0]
+    else:
+        board_second_high_rank = board_sorted[0][0]
+    
+    if combo.cardA[0] < board_high_rank and combo.cardA[0] > board_second_high_rank:
+        return True
+    else:
+        return False
+
+def middle_pair_check(combo, board):
+    '''Returns True if one of the hole cards pairs with the second
+    highest rank on the board.  Middle pair is not possible if the
+    board's second highest rank is paired on the board.'''
+    
+    if combo.cardA[0] == combo.cardB[0]:
+        return False
+    
+    board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+    board_high_rank = None
+    board_second_rank = None
+    
+    for card in board_sorted:
+        if board_high_rank == None:
+            board_high_rank = card[0]
+        elif card[0] != board_high_rank and board_second_rank == None:
+            board_second_rank = card[0]
+        elif card[0] == board_second_rank:
+            return False
+    
+    if combo.cardA[0] == board_second_rank or combo.cardB[0] == board_second_rank:
+        return True
+    else:
+        return False
+
+def weak_pair_check(combo, board):
+    '''Returns True if any hole card pairs with the third board rank
+    or lower.  Pocket pairs below second board rank are considered
+    weak pairs.  If board is double paired, weak pairs are not possible.'''
+    
+    '''Determine if board is double paired.'''
+    if len(board) > 4:
+        if card_histogram(board) == [2, 2, 1] or card_histogram(board) == [2, 2]:
+            return False
+    
+    weak_ranks = set()
+    strong_ranks = set()
+    
+    board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+    board_high_rank = None
+    board_second_rank = None
+    
+    for card in board_sorted:
+        if len(strong_ranks) < 2:
+            if card[0] not in strong_ranks:
+                strong_ranks.add(card[0])
+        else:
+            weak_ranks.add(card[0])
+    
+    if combo.cardA[0] in weak_ranks or combo.cardB[0] in weak_ranks:
+        return True
+    elif combo.cardA[0] == combo.cardB[0] and combo.cardA[0] < min(strong_ranks):
+        return True
+    else:
+        return False
+
+def ace_high_check(combo):
+    '''Returns True if only one hole card is an Ace.  Dependent on every
+    other made hand check being performed first.'''
+    
+    if combo.cardA[0] == combo.cardB[0]:
+        return False
+    if combo.cardA[0] == 12 or combo.cardB[0] == 12:
+        return True
+    else:
+        return False
+
+def overcards_check(combo, board):
+    '''Returns True if both hole card ranks are greater than highest
+    board rank.  Dependent on every other made hand check being
+    performed first.'''
+    
+    if len(board) == 5:
+        return False
+    
+    board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+    high_rank = board_sorted[0][0]
+    
+    if combo.cardA[0] > high_rank and combo.cardB[0] > high_rank:
+        return True
+    else:
+        return False
+    

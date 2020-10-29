@@ -996,4 +996,245 @@ class TestOverpairCheck(unittest.TestCase):
         
         '''As Qs'''
         combo = Combo([12, 3], [10, 3])
-        self.assertFalse(ShufflezCalc.overpair_check(combo, board))        
+        self.assertFalse(ShufflezCalc.overpair_check(combo, board))       
+
+
+class TestTopPairCheck(unittest.TestCase):
+    
+    def test_top_pair_check(self):
+        
+        '''Qc Td 9h'''
+        board = [[10, 2], [8, 1], [7, 0]]
+        
+        '''As Qs'''
+        combo = Combo([12, 3], [10, 3])
+        self.assertTrue(ShufflezCalc.top_pair_check(combo, board))
+        
+        '''Kh Qh'''
+        combo = Combo([11, 0], [10, 0])
+        self.assertTrue(ShufflezCalc.top_pair_check(combo, board))
+        
+        '''Qh 2s'''
+        combo = Combo([10, 0], [0, 3])
+        self.assertTrue(ShufflezCalc.top_pair_check(combo, board))
+        
+        '''Th 8h'''
+        combo = Combo([8, 0], [6, 0])
+        self.assertFalse(ShufflezCalc.top_pair_check(combo, board))
+
+
+class TestTopPairKickerRank(unittest.TestCase):
+    
+    def test_top_pair_kicker_rank(self):
+        
+        '''Qc Td 9h -> 12'''
+        board = [[10, 2], [8, 1], [7, 0]]
+        
+        '''Top Kicker: A'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 1), 12)
+        '''Second Kicker:  K'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 2), 11)
+        '''Third Kicker:  J'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 3), 9)
+        '''Fourth Kicker:  8'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 4), 6)
+        
+        '''Ah Kc Jd 3h'''
+        board = [[12, 0], [11, 2], [9, 1], [1, 0]]
+        
+        '''Top Kicker: Q'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 1), 10)
+        '''Second Kicker:  T'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 2), 8)
+        '''Third Kicker:  9'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 3), 7)
+        '''Fourth Kicker:  8'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 4), 6)
+        
+        '''9h 8d 5s'''
+        board = [[7, 0], [6, 1], [3, 3]]
+        
+        '''Top Kicker: A'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 1), 12)
+        '''Second Kicker:  K'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 2), 11)
+        '''Third Kicker:  Q'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 3), 10)
+        '''Fourth Kicker:  J'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 4), 9)
+        '''Seventh Kicker:  6'''
+        self.assertEqual(ShufflezCalc.top_pair_kicker_rank(board, 7), 4)
+
+
+class TestPPBelowTPCheck(unittest.TestCase):
+    
+    def test_pp_below_tp_check(self):
+        
+        '''Ad 7s 3s'''
+        board = [[12, 1], [5, 3], [1, 3]]
+        
+        '''Kd Kc'''
+        combo = Combo([11, 1], [11, 2])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Jc Js'''
+        combo = Combo([9, 2], [9, 3])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''8h 8d'''
+        combo = Combo([6, 0], [6, 1])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''7h 7d'''
+        combo = Combo([5, 0], [5, 1])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''2h 2d'''
+        combo = Combo([0, 0], [0, 1])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [1, 1])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Qd 5h 4h'''
+        board = [[10, 1], [3, 0], [2, 0]]
+        
+        '''Kd Kc'''
+        combo = Combo([11, 1], [11, 2])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Jc Js'''
+        combo = Combo([9, 2], [9, 3])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Qd Qh 4h'''
+        board = [[10, 1], [10, 0], [2, 0]]
+        
+        '''Jc Js'''
+        combo = Combo([9, 2], [9, 3])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertTrue(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''2h 2d'''
+        combo = Combo([0, 0], [0, 1])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Qd Jh 4h'''
+        board = [[10, 1], [9, 0], [2, 0]]
+        
+        '''Kd Kc'''
+        combo = Combo([11, 1], [11, 2])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+        
+        '''Td Tc'''
+        combo = Combo([8, 1], [8, 2])
+        self.assertFalse(ShufflezCalc.pp_below_tp_check(combo, board))
+
+
+class TestMiddlePairCheck(unittest.TestCase):
+    
+    def test_middle_pair_check(self):
+        
+        '''Ad 7s 3s'''
+        board = [[12, 1], [5, 3], [1, 3]]
+        
+        '''Kh 7h'''
+        combo = Combo([11, 0], [5, 0])
+        self.assertTrue(ShufflezCalc.middle_pair_check(combo, board))
+        
+        '''7h 4s'''
+        combo = Combo([5, 0], [2, 3])
+        self.assertTrue(ShufflezCalc.middle_pair_check(combo, board))
+        
+        '''Jc Tc'''
+        combo = Combo([9, 2], [8, 2])
+        self.assertFalse(ShufflezCalc.middle_pair_check(combo, board))
+        
+        '''Kd Kc'''
+        combo = Combo([11, 1], [11, 2])
+        self.assertFalse(ShufflezCalc.middle_pair_check(combo, board))
+        
+        '''Ad 7s 3s 7c'''
+        board = [[12, 1], [5, 3], [1, 3], [5, 2]]
+        
+        '''Kh 7h'''
+        combo = Combo([11, 0], [5, 0])
+        self.assertFalse(ShufflezCalc.middle_pair_check(combo, board))
+        
+        '''As Kh'''
+        combo = Combo([12, 3], [11, 0])
+        self.assertFalse(ShufflezCalc.middle_pair_check(combo, board))
+        
+        '''Js Jh'''
+        combo = Combo([9, 3], [9, 0])
+        self.assertFalse(ShufflezCalc.middle_pair_check(combo, board))
+
+
+class TestWeakPairCheck(unittest.TestCase):
+    
+    def test_weak_pair_check(self):
+        
+        '''Ad 7s 3s'''
+        board = [[12, 1], [5, 3], [1, 3]]       
+        
+        '''Kh 7h'''
+        combo = Combo([11, 0], [5, 0])
+        self.assertFalse(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertTrue(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''Kh 3h'''
+        combo = Combo([11, 0], [1, 0])
+        self.assertTrue(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''As Kh'''
+        combo = Combo([12, 3], [11, 0])
+        self.assertFalse(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''Jh 7d Tc 3c 6h'''
+        board = [[9, 0], [5, 1], [8, 2], [1, 2], [4, 0]]
+        
+        '''Kh 7h'''
+        combo = Combo([11, 0], [5, 0])
+        self.assertTrue(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''2h 2d'''
+        combo = Combo([0, 0], [0, 1])
+        self.assertTrue(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''As 3s'''
+        combo = Combo([12, 3], [1, 3])
+        self.assertTrue(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''As 6s'''
+        combo = Combo([12, 3], [4, 3])
+        self.assertTrue(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''Kd Kc'''
+        combo = Combo([11, 1], [11, 2])
+        self.assertFalse(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''Jh Jc 8d 8s 4d'''
+        board = [[9, 0], [9, 2], [6, 1], [6, 3], [2, 1]]
+        
+        '''Ah 4h'''
+        combo = Combo([12, 0], [2, 0])
+        self.assertFalse(ShufflezCalc.weak_pair_check(combo, board))
+        
+        '''2h 2d'''
+        combo = Combo([0, 0], [0, 1])
+        self.assertFalse(ShufflezCalc.weak_pair_check(combo, board))
