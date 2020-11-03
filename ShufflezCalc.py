@@ -858,4 +858,99 @@ def overcards_check(combo, board):
         return True
     else:
         return False
+
+def flush_draw_check(combo, board):
+    '''Returns True if one or both hole cards are used to make
+    a four card flush'''
     
+    '''Draws not possible on river.'''
+    if len(board) == 5:
+        return False
+    
+    '''If board has 4 or 5 of same suit, no FD is possible.'''
+    suits_list = [[], [], [], []]
+    for card in board:
+        suits_list[card[1]].append(card)
+    for suit in suits_list:
+        if len(suit) >= 4:
+            return False
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    '''Combine combo cards and board cards'''
+    test_board = board.copy()
+    for card in test_combo:
+        test_board.append(card)
+    
+    '''Assign each card in test_board to correct suit list.
+    Index of suits_list is equal to its suit.
+    0 = h, 1 = d, 2 = c, 3 = s'''
+    suits_list = [[], [], [], []]
+    for card in test_board:
+        suits_list[card[1]].append(card)
+        
+    '''Check for 4 of a single suit'''
+    for suit in suits_list:
+        if len(suit) == 4:
+            if combo.cardA in suit or combo.cardB in suit:
+                return True
+    return False
+
+def nut_flush_draw_check(combo, board):
+    '''Returns True if at least one hole card is used to make
+    the nut flush draw.  Dependent on being used after a combo
+    passes flush draw check.'''
+    
+    nut_cards = nut_flush_draw_card(board, 1)
+    
+    if combo.cardA in nut_cards or combo.cardB in nut_cards:
+        return True
+    else:
+        return False
+
+def second_nut_flush_draw_check(combo, board):
+    
+    nut_cards = nut_flush_draw_card(board, 2)
+    
+    if combo.cardA in nut_cards or combo.cardB in nut_cards:
+        return True
+    else:
+        return False    
+
+def nut_flush_draw_card(board, nut_rank):
+    '''Returns a Set() containing cards as a list [rank, suit] that
+    would make the specified nut_rank flush.  nut_rank of 1 will
+    find card(s) that make the nut flush draw.  nut_rank of 2 will
+    find card(s) that make second nut flush draw.'''
+    
+    if len(board) == 5:
+        return None
+    
+    nut_draw_cards = []
+    
+    '''Sort by suit'''
+    suits = [[], [], [], []]
+    
+    
+    for card in board:
+        suits[card[1]].append(card)
+    
+    
+    for i, n in enumerate(suits):
+        nut_found = 0
+        if len(n) == 2 or len(n) == 3:
+            suit = i
+            suits_sorted = sorted(n, key=lambda card: card[0], reverse=True)
+            rank = None
+            for x in range(12, 0, -1):
+                for card in suits_sorted:
+                    if x in card:
+                        break
+                else:
+                    if nut_found == nut_rank - 1:
+                        rank = x
+                        nut_draw_cards.append([rank, suit])
+                        break
+                    else:
+                        nut_found += 1
+    return nut_draw_cards

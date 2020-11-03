@@ -1238,3 +1238,237 @@ class TestWeakPairCheck(unittest.TestCase):
         '''2h 2d'''
         combo = Combo([0, 0], [0, 1])
         self.assertFalse(ShufflezCalc.weak_pair_check(combo, board))
+        
+
+class TestFlushDrawCheck(unittest.TestCase):
+    
+    def test_flush_draw_check(self):
+        
+        '''9h 8c 4c'''
+        board = [[7, 0], [6, 2], [2, 2]]
+        
+        '''Ac Kc'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertTrue(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Ac Kh'''
+        combo = Combo([12, 2], [11, 0])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''9s 4s Qc Jc'''
+        board = [[7, 3], [2, 3], [10, 2], [9, 2]]
+        
+        '''Ks Qs'''
+        combo = Combo([11, 3], [10, 3])
+        self.assertTrue(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Ac Kc'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertTrue(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Ac Kh'''
+        combo = Combo([12, 2], [11, 0])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Th 7h 6h'''
+        board = [[8, 0], [5, 0], [4, 0]]
+        
+        '''Ac Kh'''
+        combo = Combo([12, 2], [11, 0])
+        self.assertTrue(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Ac Kc'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''5h 4h'''
+        combo = Combo([3, 0], [2, 0])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Th 7h 6h 2h'''
+        board = [[8, 0], [5, 0], [4, 0], [0, 0]]
+        
+        '''Ac Kh'''
+        combo = Combo([12, 2], [11, 0])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''5h 4h'''
+        combo = Combo([3, 0], [2, 0])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+        
+        '''Ac Kc'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertFalse(ShufflezCalc.flush_draw_check(combo, board))
+
+
+class TestNutFlushDrawCard(unittest.TestCase):
+    
+    def test_nut_flush_draw_card(self):
+        
+        '''Finding Nut Flush Draw card; nut_rank of 1'''
+        
+        '''Qc 9c 6s -> Ac'''
+        board = [[10, 2], [7, 2], [4, 3]]
+        nut_card = [12, 2]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Ac 9c 6s -> Kc'''
+        board = [[12, 2], [7, 2], [4, 3]]
+        nut_card = [11, 2]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Jc 9c 3c -> Ac'''
+        board = [[9, 2], [7, 2], [1, 2]]
+        nut_card = [12, 2]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Kh Th 8c 5d -> Ah'''
+        board = [[11, 0], [8, 0], [6, 2], [3, 1]]
+        nut_card = [12, 0]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Kh Th 8c 3h -> Ah'''
+        board = [[11, 0], [8, 0], [6, 2], [1, 0]]
+        nut_card = [12, 0]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Ad Kd 9h -> Qd'''
+        board = [[12, 1], [11, 1], [7, 0]]
+        nut_card = [10, 1]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Jh Ts 8h 4s -> Ah, As'''
+        board = [[9, 0], [8, 3], [8, 0], [2, 3]]
+        nut_card = [12, 0]
+        nut_card_2 = [12, 3]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        self.assertIn(nut_card_2, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Ah Jd 8h 5d -> Kh, Ad'''
+        board = [[12, 0], [9, 1], [6, 0], [3, 1]]
+        nut_card = [11, 0]
+        nut_card_2 = [12, 1]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        self.assertIn(nut_card_2, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Kh Ks Ah As -> Qh, Qs'''
+        board = [[11, 0], [11, 3], [12, 0], [12, 3]]
+        nut_card = [10, 0]
+        nut_card_2 = [10, 3]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 1))
+        self.assertIn(nut_card_2, ShufflezCalc.nut_flush_draw_card(board, 1))
+        
+        '''Finding Second Nut Flush Draw card; nut_rank of 2'''
+        
+        '''Qc 9c 6s -> Kc'''
+        board = [[10, 2], [7, 2], [4, 3]]
+        nut_card = [11, 2]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Ac 9c 6s -> Qc'''
+        board = [[12, 2], [7, 2], [4, 3]]
+        nut_card = [10, 2]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Jc 9c 3c -> Kc'''
+        board = [[9, 2], [7, 2], [1, 2]]
+        nut_card = [11, 2]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Kh Th 8c 5d -> Qh'''
+        board = [[11, 0], [8, 0], [6, 2], [3, 1]]
+        nut_card = [10, 0]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Kh Th 8c 3h -> Qh'''
+        board = [[11, 0], [8, 0], [6, 2], [1, 0]]
+        nut_card = [10, 0]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Ad Kd 9h -> Jd'''
+        board = [[12, 1], [11, 1], [7, 0]]
+        nut_card = [9, 1]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Jh Ts 8h 4s -> Kh, Ks'''
+        board = [[9, 0], [8, 3], [8, 0], [2, 3]]
+        nut_card = [11, 0]
+        nut_card_2 = [11, 3]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        self.assertIn(nut_card_2, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Ah Jd 8h 5d -> Qh, Kd'''
+        board = [[12, 0], [9, 1], [6, 0], [3, 1]]
+        nut_card = [10, 0]
+        nut_card_2 = [11, 1]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        self.assertIn(nut_card_2, ShufflezCalc.nut_flush_draw_card(board, 2))
+        
+        '''Kh Ks Ah As -> Jh, Js'''
+        board = [[11, 0], [11, 3], [12, 0], [12, 3]]
+        nut_card = [9, 0]
+        nut_card_2 = [9, 3]
+        self.assertIn(nut_card, ShufflezCalc.nut_flush_draw_card(board, 2))
+        self.assertIn(nut_card_2, ShufflezCalc.nut_flush_draw_card(board, 2))        
+
+
+class TestNutFlushDrawCheck(unittest.TestCase):
+    
+    def test_nut_flush_draw_check(self):
+        
+        '''Kc 7h 2h'''
+        board = [[11, 2], [5, 0], [0, 0]]
+        
+        '''Ac 2c'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertFalse(ShufflezCalc.nut_flush_draw_check(combo, board))
+        
+        '''Ah 5h'''
+        combo = Combo([12, 0], [3, 0])
+        self.assertTrue(ShufflezCalc.nut_flush_draw_check(combo, board))
+        
+        '''Kh 5h'''
+        combo = Combo([11, 0], [3, 0])
+        self.assertFalse(ShufflezCalc.nut_flush_draw_check(combo, board))
+        
+        '''Kc 7h 2h 9h'''
+        board = [[11, 2], [5, 0], [0, 0], [7, 0]]
+        
+        '''Ac 2c'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertFalse(ShufflezCalc.nut_flush_draw_check(combo, board))
+        
+        '''Ah 5s'''
+        combo = Combo([12, 0], [3, 3])
+        self.assertTrue(ShufflezCalc.nut_flush_draw_check(combo, board))
+
+
+class TestSecondNutFlushDrawCheck(unittest.TestCase):
+    
+    def test_second_nut_flush_draw_check(self):
+        
+        '''Kc 7h 2h'''
+        board = [[11, 2], [5, 0], [0, 0]]
+        
+        '''Qc 2c'''
+        combo = Combo([10, 2], [11, 2])
+        self.assertFalse(ShufflezCalc.second_nut_flush_draw_check(combo, board))
+        
+        '''Kh 5h'''
+        combo = Combo([11, 0], [3, 0])
+        self.assertTrue(ShufflezCalc.second_nut_flush_draw_check(combo, board))
+        
+        '''Qh 5h'''
+        combo = Combo([10, 0], [3, 0])
+        self.assertFalse(ShufflezCalc.second_nut_flush_draw_check(combo, board))
+        
+        '''Kc 7h 2h 9h'''
+        board = [[11, 2], [5, 0], [0, 0], [7, 0]]
+        
+        '''Ac 2c'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertFalse(ShufflezCalc.second_nut_flush_draw_check(combo, board))
+        
+        '''Kh 5s'''
+        combo = Combo([11, 0], [3, 3])
+        self.assertTrue(ShufflezCalc.second_nut_flush_draw_check(combo, board))

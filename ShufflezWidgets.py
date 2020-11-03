@@ -927,12 +927,89 @@ class RangeStatsDisplay(QtWidgets.QScrollArea):
     
     def __init__(self):
         super().__init__()
+
+
+class RangeStatsMain(QtWidgets.QWidget):
+    '''
+    Parent widget of RangeStats; and displays them.  This widget
+    handles receives signals of range changes and passes them to
+    each of its RangeStats child widgets.  Similarly, this widget
+    emits signals indicating any changes in combos' action assignment.
+    Intended to be the primary child widget of RangeStatsDisplay.
+    '''
+    
+    def __init__(self):
+        super().__init__()
         
+        self.combos = []
+        self.board = []
+        
+        self.value = []
+        self.bluff = []
+        self.call = []
+        
+        self.made_hands = RangeStats()
+        self.made_hands.setParent(self)
+        
+        self.drawing_hands = RangeStats()
+        self.drawing_hands.setParent(self)
+    
+    def receiveBoard(self, boardCards):
+        '''Slot for BoardDisplay sendBoardCards signal'''
+        self.board = boardCards
+        #self.made_hands.board = self.board
+        self.made_hands.calc_made_hands(self.combos, self.board)
+        self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.made_hands.update()
+        self.drawing_hands.update()
+        
+        self.update()
+    
+    def receiveCombos(self, combos):
+        '''Slot for RangeDisplay sendRangesToRangeStats signal'''
+        self.value = combos[0]
+        self.bluff = combos[1]
+        self.call = combos[2]
+        
+        '''Combine value, bluff, call into single combo list.'''
+        combined_combos = []
+        for combo_list in combos:
+            combined_combos.extend(combo_list)
+        self.combos = combined_combos
+        
+        self.made_hands.calc_made_hands(self.combos, self.board)
+        self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.made_hands.update()
+        self.drawing_hands.update()
+        
+        self.update()
+    
+    def reposition_range_stats(self):
+        x, y = 0, 0
+        spacing = 10  # Gap in pixels between each RangeStats widget
+        self.made_hands.setParent(self)
+        self.made_hands.show()
+        self.made_hands.move(x, y)
+        
+        y += self.made_hands.display_height
+        y += spacing
+        
+        self.drawing_hands.setParent(self)
+        self.drawing_hands.show()
+        self.drawing_hands.move(x, y)
+        
+        self.setMinimumSize(self.made_hands.display_width, self.made_hands.display_height + self.drawing_hands.display_height + spacing + 1)
+    
+    def update(self):
+        self.made_hands.reconfigHeight()
+        self.reposition_range_stats()
+        
+        super().update()
         
 class RangeStats(QtWidgets.QWidget):
     '''
-    Widget that organizes and displays the StatsRow Widgets.
-    Primary displayed widget of RangeStatsDisplay (QScrollArea).
+    Widget that calculates, organizes, and displays the StatsRow Widgets.
+    Intended to be a child widget of RangeStatsMain
     '''
     
     def __init__(self):
@@ -947,8 +1024,12 @@ class RangeStats(QtWidgets.QWidget):
         self.bluff = []
         self.call = []
         
+        self.display_height = 0
+        self.display_width = 0
+        
         '''Tracks each child StatsRow.extended status.'''
         self.made_hands = self.made_hand_extended_tracker()
+        self.drawing_hands = self.drawing_hands_extended_tracker()
     
     def rowExtendReceive(self):
         '''Slot to respond to StatsRow extendSignal'''
@@ -983,25 +1064,21 @@ class RangeStats(QtWidgets.QWidget):
         made_hands['Overcards'] = False
         
         return made_hands
-        
-    def receiveBoard(self, boardCards):
-        '''Slot for BoardDisplay sendBoardCards signal'''
-        self.board = boardCards
-        self.calcAllRows()
-        self.update()
     
-    def receiveCombos(self, combos):
-        '''Slot for RangeDisplay sendRangesToRangeStats signal'''
-        self.value = combos[0]
-        self.bluff = combos[1]
-        self.call = combos[2]
+    def drawing_hands_extended_tracker(self):
+        '''
+        Returns a dict of key='Drawing Hand Name' and
+        value=Boolean representing if it is extended or not.
+        Used by self.__init__.
+        As new hand types are added to self.calc_drawing_hands they get added
+        here first as the dict created here is used to make drawing_hands
+        dict in self.calc_drawing_hands.
+        '''
         
-        combined_combos = []
-        for combo_list in combos:
-            combined_combos.extend(combo_list)
-        self.combos = combined_combos
-        self.calcAllRows()
-        self.update()
+        drawing_hands = {}
+        drawing_hands['Flush Draw'] = False
+        
+        return drawing_hands
     
     def saveExtendedStatus(self):
         '''Used when a child StatsRow object extends or collapses
@@ -1011,6 +1088,10 @@ class RangeStats(QtWidgets.QWidget):
             for hand in self.made_hands:
                 if row.name == hand:
                     self.made_hands[hand] = row.extended
+                    break
+            for hand in self.drawing_hands:
+                if row.name == hand:
+                    self.drawing_hands[hand] = row.extended
                     break
             
     def setExtendedStatus(self):
@@ -1023,15 +1104,20 @@ class RangeStats(QtWidgets.QWidget):
                     row.extended = self.made_hands[hand]
                     row.calcHeight()
                     break
-    
-    def calcAllRows(self):
+            for hand in self.drawing_hands:
+                if row.name == hand:
+                    row.extended = self.drawing_hands[hand]
+                    row.calcHeight()
+                    break
+                
+    def calc_made_hands(self, combos, board):
         '''Clear allRows and recalculate made hand stats.'''
         
         for row in self.allRows:
             row.hide()
         self.allRows.clear()
-        if len(self.board) >= 3:
-            self.allRows = self.calc(self.combos, self.board)
+        if len(board) >= 3:
+            self.allRows = self.find_made_hands(combos, board)
         for row in self.allRows:
             row.extendSignal.connect(self.rowExtendReceive)
             if len(row.secondary_StatsRows) > 0:
@@ -1039,8 +1125,24 @@ class RangeStats(QtWidgets.QWidget):
                 row.calcHeight()
                 for secondary_row in row.secondary_StatsRows:
                     secondary_row.setParent(row)
+    
+    def calc_drawing_hands(self, combos, board):
+        '''Clear allRows and recalculate drawing hand stats.'''
         
-    def calc(self, combos, board):
+        for row in self.allRows:
+            row.hide()
+        self.allRows.clear()
+        if len(board) >= 3:
+            self.allRows = self.find_drawing_hands(combos, board)
+        for row in self.allRows:
+            row.extendSignal.connect(self.rowExtendReceive)
+            if len(row.secondary_StatsRows) > 0:
+                row.extendable = True
+                row.calcHeight()
+                for secondary_row in row.secondary_StatsRows:
+                    secondary_row.setParent(row)        
+        
+    def find_made_hands(self, combos, board):
         '''
         Main Made Hand Stats Sovler.
         Returns a list of StatsRow Objects.
@@ -1083,9 +1185,10 @@ class RangeStats(QtWidgets.QWidget):
         '''Check board for made hands to disallow lesser hand types from being checked'''
         
         '''Iterate through each made hand type in order from highest to lowest.
-        We want each combo to be assigned to only ONE of these main made hand types.
-        If the hand type has secondary StatsRows (i.e. 2nd nut flush, TP weak kicker),
-        they are assigned here.'''
+        We want each combo to be assigned to only ONE of these main made hand types
+        (except Ace High and Overcards).   If the hand type has secondary StatsRows
+        (i.e. 2nd nut flush, TP weak kicker), they are assigned here.'''
+        
         for combo in unBlockedCombos:
             
             '''Straight Flush'''
@@ -1200,11 +1303,6 @@ class RangeStats(QtWidgets.QWidget):
             '''Overcards'''
             if ShCalc.overcards_check(combo, board):
                 made_hands['Overcards'].append(combo)
-                
-            
-        '''Iterate through each drawing or other type of hand.
-        Each combo could belong to more than one of these.'''
-        
         
         
         '''Construct a list of StatsRow objects for each dict of made hands'''
@@ -1229,6 +1327,51 @@ class RangeStats(QtWidgets.QWidget):
             made_hands['Top Pair'].append(top_pair_stats)
         
         finalStats = RangeStats.dictToStatsRows(made_hands, total_combos)
+         
+        return finalStats
+    
+    def find_drawing_hands(self, combos, board):
+        '''
+        Main Drawing Hand Stats Sovler.
+        Returns a list of StatsRow Objects.
+        combos is a list or set of combo objects.
+        board is a list or set of lists which represent a card as
+        [rank, suit].  rank is 0-12, suit is 0-3
+        0 = h, 1 = d, 2 = c, 3 = s
+        '''
+        
+        unBlockedCombos = ShCalc.removeBlockedCombos(combos, board)
+        total_combos = len(unBlockedCombos)
+        
+        flush_draw = {}
+        flush_draw['Nut Flush Draw'] = []
+        flush_draw['Second Nut FD'] = []
+        flush_draw['Weak Flush Draw'] = []
+        
+        drawing_hands = {}
+        for hand in self.drawing_hands:
+            drawing_hands[hand] = []
+        
+        for combo in unBlockedCombos:
+            
+            '''Flush Draw'''
+            if ShCalc.flush_draw_check(combo, board):
+                drawing_hands['Flush Draw'].append(combo)
+                if ShCalc.nut_flush_draw_check(combo, board):
+                    flush_draw['Nut Flush Draw'].append(combo)
+                elif ShCalc.second_nut_flush_draw_check(combo, board):
+                    flush_draw['Second Nut FD'].append(combo)
+                else:
+                    flush_draw['Weak Flush Draw'].append(combo)
+        
+        
+        '''Construct a list of StatsRow objects for each dict of made hands'''
+        flush_draw_total_combos = len(drawing_hands['Flush Draw'])
+        if flush_draw_total_combos > 0:
+            flush_draw_stats = RangeStats.dictToStatsRows(flush_draw, total_combos)
+            drawing_hands['Flush Draw'].append(flush_draw_stats)        
+
+        finalStats = RangeStats.dictToStatsRows(drawing_hands, total_combos)
          
         return finalStats
     
@@ -1266,7 +1409,10 @@ class RangeStats(QtWidgets.QWidget):
                         newHeight += row.height + 1
                 else:
                     newHeight += row.height + 1
+            self.display_height = newHeight
+            self.display_width = self.allRows[0].width + 1
             self.setMinimumSize(self.allRows[0].width + 1, newHeight)
+            self.parent().reposition_range_stats()
     
     def setRowPosition(self):
         '''Set x, y position for each visible StatsRow object'''

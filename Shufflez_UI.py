@@ -69,11 +69,11 @@ class PlayerWindow(QtWidgets.QWidget):
         layout.addWidget(self.rangeDisplay, 1, 0, Qt.AlignCenter)
         
         '''Create RangeStatsDisplay'''
-        self.rangeStats = ShufflezWidgets.RangeStats()
+        self.rangeStatsMain = ShufflezWidgets.RangeStatsMain()
         self.rangeStatsDisplay = ShufflezWidgets.RangeStatsDisplay()
         self.rangeStatsDisplay.setFixedSize(300, self.rangeDisplay.totalHeight)
         layout.addWidget(self.rangeStatsDisplay, 1, 1, Qt.AlignCenter)
-        self.rangeStatsDisplay.setWidget(self.rangeStats)
+        self.rangeStatsDisplay.setWidget(self.rangeStatsMain)
         
         '''Create BoardDisplay'''
         self.boardDisplay = ShufflezWidgets.BoardDisplay()
@@ -87,9 +87,9 @@ class PlayerWindow(QtWidgets.QWidget):
         '''Connect Signals and Slots between Widgets'''
         self.action_buckets.actionSelected.connect(self.rangeDisplay.setAction)
         self.rangeDisplay.sendRangesToActionBuckets.connect(self.action_buckets.receiveRanges)
-        self.boardDisplay.sendBoardCards.connect(self.rangeStats.receiveBoard)
+        self.boardDisplay.sendBoardCards.connect(self.rangeStatsMain.receiveBoard)
         self.boardDisplay.sendBoardCards.connect(self.action_buckets.receiveBoard)
-        self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStats.receiveCombos)
+        self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsMain.receiveCombos)
 
 
 if __name__ == "__main__":
