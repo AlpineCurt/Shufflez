@@ -1472,3 +1472,781 @@ class TestSecondNutFlushDrawCheck(unittest.TestCase):
         '''Kh 5s'''
         combo = Combo([11, 0], [3, 3])
         self.assertTrue(ShufflezCalc.second_nut_flush_draw_check(combo, board))
+
+
+class TestStraightDrawCheck(unittest.TestCase):
+    
+    def test_straight_draw_check(self):
+        
+        '''Ac 9h 8c'''
+        board = [[12, 2], [7, 0], [6, 2]]
+        
+        '''Jh Th'''
+        combo = Combo([9, 0], [8, 0])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''7c 6d'''
+        combo = Combo([5, 2], [4, 1])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''6d 5d'''
+        combo = Combo([4, 1], [3, 1])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Qs Jc'''
+        combo = Combo([10, 3], [9, 2])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Kd Qh'''
+        combo = Combo([11, 1], [10, 0])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Th 7s'''
+        combo = Combo([8, 0], [5, 3])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Kd Th'''
+        combo = Combo([11, 1], [8, 0])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Td Ts'''
+        combo = Combo([8, 1], [8, 3])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''7h 5d 3d'''
+        board = [[5, 0], [3, 1], [1, 1]]
+        
+        '''6h 6s'''
+        combo = Combo([4, 0], [4, 3])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''6c 5c'''
+        combo = Combo([4, 2], [3, 2])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''9d 8h'''
+        combo = Combo([7, 1], [6, 0])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''8d 7s'''
+        combo = Combo([6, 1], [5, 3])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''4h 4d'''
+        combo = Combo([2, 0], [2, 1])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Tc 9c'''
+        combo = Combo([8, 2], [7, 2])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''9h 6s 5s 7h'''
+        board = [[7, 0], [4, 3], [3, 3], [5, 0]]
+        
+        '''As Ks'''
+        combo = Combo([12, 3], [11, 3])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''4h 4d'''
+        combo = Combo([2, 0], [2, 1])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''5h 4d'''
+        combo = Combo([3, 0], [2, 1])
+        self.assertTrue(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''9c 9d'''
+        combo = Combo([7, 2], [7, 1])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''9h 6s 5s 7h Kh'''
+        board = [[7, 0], [4, 3], [3, 3], [5, 0], [11, 0]]
+        
+        '''9c 9d'''
+        combo = Combo([7, 2], [7, 1])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+        
+        '''Js Ts'''
+        combo = Combo([9, 3], [8, 3])
+        self.assertFalse(ShufflezCalc.straight_draw_check(combo, board))
+
+
+class TestOESDCheck(unittest.TestCase):
+    
+    def test_oesd_check(self):
+        
+        '''Ac 9h 8c'''
+        board = [[12, 2], [7, 0], [6, 2]]
+        
+        '''Jh Th'''
+        combo = Combo([9, 0], [8, 0])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+        
+        '''7c 6d'''
+        combo = Combo([5, 2], [4, 1])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+        
+        '''6d 5d'''
+        combo = Combo([4, 1], [3, 1])
+        self.assertFalse(ShufflezCalc.oesd_check(combo, board))
+        
+        '''Qs Jc'''
+        combo = Combo([10, 3], [9, 2])
+        self.assertFalse(ShufflezCalc.oesd_check(combo, board))
+        
+        '''9h 8c 7d'''
+        board = [[7, 0], [6, 2], [5, 1]]
+        
+        '''Td Ts'''
+        combo = Combo([8, 1], [8, 3])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+        
+        '''Qs Jc'''
+        combo = Combo([10, 3], [9, 2])
+        self.assertFalse(ShufflezCalc.oesd_check(combo, board))
+        
+        '''Tc 9c'''
+        combo = Combo([8, 2], [7, 2])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+        
+        '''5h 4d'''
+        combo = Combo([3, 0], [2, 1])
+        self.assertFalse(ShufflezCalc.oesd_check(combo, board))
+        
+        '''Ts 7d 2c 3h'''
+        board = [[8, 3], [5, 1], [0, 2], [1, 0]]
+        
+        '''5h 4d'''
+        combo = Combo([3, 0], [2, 1])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+        
+        '''9d 8h'''
+        combo = Combo([7, 1], [6, 0])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+        
+        '''Ah 5c 2c 4s'''
+        board = [[12, 0], [3, 2], [0, 2], [2, 3]]
+        
+        '''8h 6s'''
+        combo = Combo([6, 0], [4, 3])
+        self.assertTrue(ShufflezCalc.oesd_check(combo, board))
+
+
+class TestBDFDCheck(unittest.TestCase):
+    
+    def test_bdfd_check(self):
+        
+        '''9h 8c 7d'''
+        board = [[7, 0], [6, 2], [5, 1]]
+        
+        '''Ah 4h'''
+        combo = Combo([12, 0], [2, 0])
+        self.assertTrue(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Kh 4h'''
+        combo = Combo([11, 0], [2, 0])
+        self.assertTrue(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''As 4s'''
+        combo = Combo([12, 3], [2, 3])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Qh Js'''
+        combo = Combo([10, 0], [9, 3])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Ks 2s 7h'''
+        board = [[11, 3], [0, 3], [5, 0]]
+        
+        '''As Ts'''
+        combo = Combo([12, 3], [8, 3])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''6h 5h'''
+        combo = Combo([4, 0], [3, 0])
+        self.assertTrue(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Js Td'''
+        combo = Combo([9, 3], [8, 1])
+        self.assertTrue(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''9c 8h'''
+        combo = Combo([7, 2], [6, 0])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Ks 2s 7s'''
+        board = [[11, 3], [0, 3], [5, 3]]
+        
+        '''9c 8h'''
+        combo = Combo([7, 2], [6, 0])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Js Td'''
+        combo = Combo([9, 3], [8, 1])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''As 4s'''
+        combo = Combo([12, 3], [2, 3])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Ks 2s 7h Jc'''
+        board = [[11, 3], [0, 3], [5, 0], [9, 2]]
+        
+        '''As 4s'''
+        combo = Combo([12, 3], [2, 3])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''9c 8h'''
+        combo = Combo([7, 2], [6, 0])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Js Td'''
+        combo = Combo([9, 3], [8, 1])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Ks 2s 7h Jc 8d'''
+        board = [[11, 3], [0, 3], [5, 0], [9, 2], [6, 1]]
+        
+        '''As 4s'''
+        combo = Combo([12, 3], [2, 3])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''Js Td'''
+        combo = Combo([9, 3], [8, 1])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+        
+        '''9c 8h'''
+        combo = Combo([7, 2], [6, 0])
+        self.assertFalse(ShufflezCalc.bdfd_check(combo, board))
+
+
+class TestTwoCardBDFDCheck(unittest.TestCase):
+    
+    def test_two_card_bdfd_check(self):
+        
+        '''Ah Ac'''
+        combo = Combo([12, 0], [12, 2])
+        self.assertFalse(ShufflezCalc.two_card_bdfd_check(combo))
+        
+        '''Ah Kc'''
+        combo = Combo([12, 0], [11, 2])
+        self.assertFalse(ShufflezCalc.two_card_bdfd_check(combo))
+        
+        '''Ah 2h'''
+        combo = Combo([12, 0], [0, 0])
+        self.assertTrue(ShufflezCalc.two_card_bdfd_check(combo))
+        
+        '''Js Ts'''
+        combo = Combo([9, 3], [8, 3])
+        self.assertTrue(ShufflezCalc.two_card_bdfd_check(combo))
+
+
+class TestNutBDFDCheck(unittest.TestCase):
+    
+    def test_nut_bdfd_check(self):
+        
+        '''9c 8h 3d'''
+        board = [[7, 2], [6, 0], [1, 1]]
+        
+        '''Ah 6h'''
+        combo = Combo([12, 0], [4, 0])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Kh 6h'''
+        combo = Combo([11, 0], [4, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac Jc'''
+        combo = Combo([12, 2], [9, 2])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Qc Jc'''
+        combo = Combo([10, 2], [9, 2])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ah Kc Qd'''
+        board = [[12, 0], [11, 2], [10, 1]]
+        
+        '''Kh 6h'''
+        combo = Combo([11, 0], [4, 0])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''4h 3h'''
+        combo = Combo([2, 0], [1, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac 9c'''
+        combo = Combo([12, 2], [7, 2])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Qc Jc'''
+        combo = Combo([10, 2], [9, 2])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ad Kd'''
+        combo = Combo([12, 1], [11, 1])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ad 8d'''
+        combo = Combo([12, 1], [6, 1])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Kd Jd'''
+        combo = Combo([11, 1], [10, 1])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''As 9s'''
+        combo = Combo([12, 3], [7, 3])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Kh Tc 6h'''
+        board = [[11, 0], [8, 2], [4, 0]]
+        
+        '''Ah 8c'''
+        combo = Combo([12, 0], [6, 2])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Qh Jh'''
+        combo = Combo([10, 0], [9, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac 8h'''
+        combo = Combo([12, 2], [6, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac Kc'''
+        combo = Combo([12, 2], [11, 2])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac 2c'''
+        combo = Combo([12, 2], [0, 2])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac 6d'''
+        combo = Combo([12, 2], [4, 1])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Jh 8h 5h'''
+        board = [[9, 0], [6, 0], [3, 0]]
+        
+        '''Ac 6d'''
+        combo = Combo([12, 2], [4, 1])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ah 8c'''
+        combo = Combo([12, 0], [6, 2])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Kd Jd'''
+        combo = Combo([11, 1], [10, 1])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Qh Th'''
+        combo = Combo([10, 0], [8, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ah Kc 8h'''
+        board = [[12, 0], [11, 2], [6, 0]]
+        
+        '''Kh 7s'''
+        combo = Combo([11, 0], [5, 3])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Kh 5h'''
+        combo = Combo([11, 0], [3, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Qh Jh'''
+        combo = Combo([10, 0], [9, 0])
+        self.assertFalse(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        '''Ac Kh'''
+        combo = Combo([12, 2], [11, 0])
+        self.assertTrue(ShufflezCalc.nut_bdfd_check(combo, board))
+        
+        
+class TestBDSDCheck(unittest.TestCase):
+    
+    def test_bdsd_check(self):
+        
+        '''Qh 5h 4d'''
+        board = [[10, 0], [3, 0], [2, 1]]
+        
+        '''Kh Jh'''
+        combo = Combo([11, 0], [9, 0])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Kc Jd'''
+        combo = Combo([11, 2], [9, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ah Jc'''
+        combo = Combo([12, 0], [9, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))        
+        
+        '''Ac Js'''
+        combo = Combo([12, 2], [9, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))        
+        
+        '''Kh Td'''
+        combo = Combo([11, 0], [8, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Jh Td'''
+        combo = Combo([9, 0], [8, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Js 8d'''
+        combo = Combo([9, 3], [6, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Js 9h'''
+        combo = Combo([9, 3], [7, 0])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ac 6c'''
+        combo = Combo([12, 2], [4, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''9s 8s'''
+        combo = Combo([7, 3], [6, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ad Kd'''
+        combo = Combo([12, 1], [11, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''As Tc'''
+        combo = Combo([12, 3], [8, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''9h 8c 7d'''
+        board = [[7, 0], [6, 2], [5, 1]]
+        
+        '''Ah Kh'''
+        combo = Combo([12, 0], [11, 0])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Kh Qh'''
+        combo = Combo([11, 0], [10, 0])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Qh Jh'''
+        combo = Combo([10, 0], [9, 0])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''9c 9d'''
+        combo = Combo([7, 2], [7, 1])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''8d 7s'''
+        combo = Combo([6, 1], [5, 3])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''7s 6s'''
+        combo = Combo([5, 3], [4, 3])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''6h 6c'''
+        combo = Combo([4, 0], [4, 2])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''4c 4d'''
+        combo = Combo([2, 2], [2, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''4d 3h'''
+        combo = Combo([2, 1], [1, 0])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Jc Tc'''
+        combo = Combo([9, 2], [8, 2])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Td 9s 3c'''
+        board = [[8, 1], [7, 3], [1, 2]]
+        
+        '''Ah 2s'''
+        combo = Combo([12, 0], [0, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''As 4c'''
+        combo = Combo([12, 3], [2, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''As 5s'''
+        combo = Combo([12, 3], [3, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''4h 2c'''
+        combo = Combo([2, 0], [0, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''5d 2c'''
+        combo = Combo([3, 1], [0, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Jh Jc'''
+        combo = Combo([9, 0], [9, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''As Ks'''
+        combo = Combo([12, 3], [11, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''9c 8c'''
+        combo = Combo([7, 2], [6, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''8h 7d'''
+        combo = Combo([6, 0], [5, 1])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ah Qh'''
+        combo = Combo([12, 0], [10, 0])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''6c 5d'''
+        combo = Combo([4, 2], [3, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''6h 6d'''
+        combo = Combo([4, 0], [4, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Kh Ks'''
+        combo = Combo([11, 0], [11, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ah Ac'''
+        combo = Combo([12, 0], [12, 2])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Th Tc Td'''
+        board = [[8, 0], [8, 2], [8, 1]]
+        
+        '''As Ks'''
+        combo = Combo([12, 3], [11, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Kc Qh'''
+        combo = Combo([11, 2], [10, 0])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''9d 9s'''
+        combo = Combo([7, 1], [7, 3])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''7h 6s'''
+        combo = Combo([5, 0], [4, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ts 9c'''
+        combo = Combo([8, 3], [7, 2])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Ah 8c'''
+        combo = Combo([12, 0], [6, 2])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Qc 8c'''
+        combo = Combo([10, 2], [6, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''8h As 8c'''
+        board = [[6, 0], [12, 3], [6, 2]]
+        
+        '''3c 2c'''
+        combo = Combo([1, 2], [0, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''5d 4d'''
+        combo = Combo([3, 1], [2, 1])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Qs Jc'''
+        combo = Combo([10, 3], [9, 2])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''Kc 8d'''
+        combo = Combo([11, 2], [6, 1])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''6s 5s'''
+        combo = Combo([4, 3], [3, 3])
+        self.assertTrue(ShufflezCalc.bdsd_check(combo, board))
+        
+        '''8d 8s'''
+        combo = Combo([6, 1], [6, 3])
+        self.assertFalse(ShufflezCalc.bdsd_check(combo, board))
+
+
+class Test_bdsd_open_ended_three_straight_check(unittest.TestCase):
+    
+    def test_bdsd_open_ended_three_straight_check(self):
+        
+        '''Qh Td 3h'''
+        board = [[10, 0], [8, 1], [1, 0]]
+        
+        '''4h 2h'''
+        combo = Combo([2, 0], [0, 0])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''5c 4s'''
+        combo = Combo([3, 2], [2, 3])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Ac 2d'''
+        combo = Combo([12, 1], [0, 1])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Ah 9s 2c'''
+        board = [[12, 0], [7, 3], [0, 2]]
+        
+        '''Td 8d'''
+        combo = Combo([8, 1], [6, 1])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''8d 7d'''
+        combo = Combo([6, 1], [5, 1])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Jh Td'''
+        combo = Combo([9, 0], [8, 1])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Kc Qd'''
+        combo = Combo([11, 2], [10, 1])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''3h 3s'''
+        combo = Combo([1, 0], [1, 3])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Qc Jh'''
+        combo = Combo([10, 2], [9, 0])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Ks Jh 2c'''
+        board = [[11, 3], [9, 0], [0, 2]]
+        
+        '''4s 3c'''
+        combo = Combo([2, 3], [1, 2])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Ac 3c'''
+        combo = Combo([12, 2], [1, 2])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Qd Qh'''
+        combo = Combo([10, 1], [10, 0])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Tc 9c'''
+        combo = Combo([8, 2], [7, 2])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Qh Js 8c'''
+        board = [[10, 0], [9, 3], [6, 2]]
+        
+        '''9s 7s'''
+        combo = Combo([7, 3], [5, 3])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''7d 6c'''
+        combo = Combo([5, 1], [4, 2])
+        self.assertTrue(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''6c 5h'''
+        combo = Combo([4, 2], [3, 0])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Kh Kd'''
+        combo = Combo([11, 0], [11, 1])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        '''Ac Ks'''
+        combo = Combo([12, 2], [11, 3])
+        self.assertFalse(ShufflezCalc.bdsd_open_ended_three_straight_check(combo, board))
+        
+        
+class TestTwoCardBDSDCheck(unittest.TestCase):
+    
+    def test_two_card_bdsd_check(self):
+        
+        '''Kd 7s 6c'''
+        board = [[11, 1], [5, 3], [4, 2]]
+        
+        '''Ah Qh'''
+        combo = Combo([12, 0], [10, 0])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Ac Jd'''
+        combo = Combo([12, 2], [9, 1])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''As Th'''
+        combo = Combo([12, 3], [8, 0])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''9d 9s'''
+        combo = Combo([7, 1], [7, 3])
+        self.assertFalse(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''5d 5s'''
+        combo = Combo([3, 1], [3, 3])
+        self.assertFalse(ShufflezCalc.two_card_bdsd_check(combo, board))        
+        
+        '''5s 4s'''
+        combo = Combo([3, 3], [2, 3])
+        self.assertFalse(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''3h 2d'''
+        combo = Combo([1, 0], [0, 1])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Tc 8s 2s'''
+        board = [[8, 2], [6, 3], [0, 3]]
+        
+        '''Ac 3d'''
+        combo = Combo([12, 2], [1, 1])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Ah 4h'''
+        combo = Combo([12, 0], [2, 0])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Ad 5s'''
+        combo = Combo([12, 0], [3, 3])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''5d 4c'''
+        combo = Combo([3, 1], [2, 2])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''5c 3c'''
+        combo = Combo([3, 2], [1, 2])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Kc Qc'''
+        combo = Combo([11, 2], [10, 2])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Ks 9d'''
+        combo = Combo([11, 3], [7, 1])
+        self.assertTrue(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''9h 8h'''
+        combo = Combo([7, 0], [6, 0])
+        self.assertFalse(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Ah Tc 2s 8s'''
+        board = [[12, 0], [8, 2], [0, 3], [6, 3]]
+        
+        '''6s 5s'''
+        combo = Combo([4, 3], [3, 3])
+        self.assertFalse(ShufflezCalc.two_card_bdsd_check(combo, board))
+        
+        '''Kh Qh'''
+        combo = Combo([11, 0], [10, 0])
+        self.assertFalse(ShufflezCalc.two_card_bdsd_check(combo, board))        

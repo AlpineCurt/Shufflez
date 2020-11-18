@@ -918,7 +918,7 @@ def second_nut_flush_draw_check(combo, board):
         return False    
 
 def nut_flush_draw_card(board, nut_rank):
-    '''Returns a Set() containing cards as a list [rank, suit] that
+    '''Returns a list containing cards as a list [rank, suit] that
     would make the specified nut_rank flush.  nut_rank of 1 will
     find card(s) that make the nut flush draw.  nut_rank of 2 will
     find card(s) that make second nut flush draw.'''
@@ -954,3 +954,284 @@ def nut_flush_draw_card(board, nut_rank):
                     else:
                         nut_found += 1
     return nut_draw_cards
+
+def straight_draw_check(combo, board):
+    '''Returns True if either or both hole cards create four to a straight.
+    Hole card must be included in the four to a straight; four to a
+    straight on the board does not count.'''
+    
+    '''No draws on the river'''
+    if len(board) == 5:
+        return False
+    
+    '''At least one hole card rank must differ from board ranks'''
+    board_ranks = []
+    for card in board:
+        board_ranks.append(card[0])
+    if combo.cardA[0] in board_ranks and combo.cardB[0] in board_ranks:
+        return False
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    '''Add wheel ace to test_combo if necessary'''
+    for card in test_combo:
+        if card[0] == 12:
+            test_combo.append([-1, card[1]])
+    
+    '''Combine combo cards with board cards and remove duplicate ranks'''
+    test_board = removeDuplicateRanks(board, [combo.cardA, combo.cardB])
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)    
+    
+    '''Add wheel ace if necessary'''
+    if test_board[0][0] == 12:
+        test_board.append([-1, test_board[0][1]])
+        
+    '''Check every group of four cards'''
+    ci = 0
+    while len(test_board) - ci >= 4:
+        four_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2], 
+                          test_board[ci + 3]]
+        if 3 <= four_card_test[0][0] - four_card_test[3][0] <= 4:
+            for card in test_combo:
+                if card in four_card_test:
+                    return True
+        ci += 1
+    return False
+
+def oesd_check(combo, board):
+    '''Returns True if the hole cards and the board make an
+    Open Ended Straight Draw.  OESD is defined as haivng two
+    different ranks that could complete the straight.  This
+    function assumes the combo has passed straight_draw_check.'''
+    
+    '''Combine combo cards with board cards and remove duplicate ranks'''
+    test_board = removeDuplicateRanks(board, [combo.cardA, combo.cardB])
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)    
+    
+    '''Add wheel ace if necessary'''
+    if test_board[0][0] == 12:
+        test_board.append([-1, test_board[0][1]])
+    
+    test_board_ranks = []
+    for card in test_board:
+        test_board_ranks.append(card[0])
+    
+    draw_count = 0  # track number of cards that could make a straight
+    found_draws = set()
+    
+    ci = 0
+    
+    '''Plug in each missing rank and see if it makes a straight'''
+    while len(test_board_ranks) - ci >= 4:
+        four_card_test = [test_board_ranks[ci], test_board_ranks[ci + 1], test_board_ranks[ci + 2], 
+                          test_board_ranks[ci + 3]]
+        for i in range(12, -2, -1):
+            if i not in four_card_test:
+                board_ranks = four_card_test.copy()
+                board_ranks.append(i)
+                board_ranks = sorted(board_ranks, reverse=True)
+                if board_ranks[0] - board_ranks[4] == 4:
+                    if i not in found_draws:
+                        found_draws.add(i)
+                        draw_count += 1
+        ci += 1
+        
+    if draw_count == 2:
+        return True
+    else:
+        return False
+
+def bdfd_check(combo, board):
+    '''Returns True if at least one of the hole cards is used
+    to make a backdoor flush draw.  Only possible on the flop.'''
+    
+    if len(board) != 3:
+        return False
+    
+    if board[0][1] == board[1][1] and board[1][1] == board[2][1]:
+        return False
+    
+    test_board = board.copy()
+    test_board.append(combo.cardA)
+    test_board.append(combo.cardB)
+    
+    suits_list = [[], [], [], []]
+    
+    for card in test_board:
+        suits_list[card[1]].append(card)
+    
+    for suit in suits_list:
+        if len(suit) == 3:
+            return True
+    
+    return False
+
+def two_card_bdfd_check(combo):
+    '''Returns True if the hole cards are the same suit. Intended
+    to be used only after a combo has passed bdfd_check()'''
+    
+    if combo.cardA[1] == combo.cardB[1]:
+        return True
+    else:
+        return False
+    
+def nut_bdfd_check(combo, board):
+    '''Returns True if the hole card combo is drawing to the nut flush.
+    Dependent on combo already having passed bdfd_check()'''
+    
+    if len(board) != 3:
+        return False
+    
+    '''Find Nut Flush card for each suit'''
+    suit_nuts = [12, 12, 12, 12]
+    board_sorted = sorted(board, key=lambda card: card[0], reverse=True)
+    for card in board_sorted:
+        if card[0] == suit_nuts[card[1]]:
+            suit_nuts[card[1]] -= 1    
+    
+    test_board = board.copy()
+    test_board.append(combo.cardA)
+    test_board.append(combo.cardB)
+    
+    suits_list = [[], [], [], []]
+    
+    for card in test_board:
+        suits_list[card[1]].append(card)
+        
+    for i, suit in enumerate(suits_list):
+        if len(suit) == 3:
+            if [suit_nuts[i], i] in suit:
+                return True
+    return False
+
+def bdsd_check(combo, board):
+    '''Returns True if if one or both hole cards are used to
+    make a backdoor straight draw.'''
+    
+    if len(board) != 3:
+        return False
+    
+    if straight_check(combo, board):
+        return False
+    
+    if straight_draw_check(combo, board):
+        return False
+    
+    '''At least one hole card rank must differ from board ranks'''
+    board_ranks = []
+    for card in board:
+        board_ranks.append(card[0])
+    if combo.cardA[0] in board_ranks and combo.cardB[0] in board_ranks:
+        return False
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    '''Add wheel ace to test_combo if necessary'''
+    for card in test_combo:
+        if card[0] == 12:
+            test_combo.append([-1, card[1]])
+    
+    '''Combine combo cards with board cards and remove duplicate ranks'''
+    test_board = removeDuplicateRanks(board, [combo.cardA, combo.cardB])
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+    
+    '''Add wheel ace if necessary'''
+    if test_board[0][0] == 12:
+        test_board.append([-1, test_board[0][1]])
+        
+    '''Check every group of three cards'''
+    ci = 0
+    while len(test_board) - ci >= 3:
+        three_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2]]
+        if 2 <= three_card_test[0][0] - three_card_test[2][0] <= 4:
+            for card in test_combo:
+                if card in three_card_test:
+                    return True
+        ci += 1
+    return False
+
+def bdsd_open_ended_three_straight_check(combo, board):
+    '''Returns True if both hard cards are used to make an
+    open ened three straight.'''
+    
+    if len(board) != 3:
+        return False
+    
+    if straight_check(combo, board):
+        return False
+    
+    if straight_draw_check(combo, board):
+        return False
+    
+    '''Both hole cards must differ from board ranks'''
+    board_ranks = []
+    for card in board:
+        board_ranks.append(card[0])
+    if combo.cardA[0] in board_ranks or combo.cardB[0] in board_ranks:
+        return False
+    
+    '''Combine combo cards with board cards and remove duplicate ranks'''
+    test_board = removeDuplicateRanks(board, [combo.cardA, combo.cardB])
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+     
+    
+    '''Check every group of three cards'''
+    ci = 0
+    while len(test_board) - ci >= 3:
+        three_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2]]
+        if three_card_test[0][0] - three_card_test[2][0] == 2:
+            if combo.cardA in three_card_test and combo.cardB in three_card_test:
+                if three_card_test[0][0] != 12:
+                    return True
+        ci += 1
+    return False
+
+def two_card_bdsd_check(combo, board):
+    '''Returns True if both hole cards are used to make a
+    back door straight draw.'''
+    
+    if len(board) != 3:
+        return False
+    
+    if straight_check(combo, board):
+        return False
+    
+    if straight_draw_check(combo, board):
+        return False
+    
+    '''Both hole card ranks must differ from board ranks'''
+    board_ranks = []
+    for card in board:
+        board_ranks.append(card[0])
+    if combo.cardA[0] in board_ranks or combo.cardB[0] in board_ranks:
+        return False
+    
+    test_combo = [combo.cardA, combo.cardB]
+    
+    '''Add wheel ace to test_combo if necessary'''
+    for card in test_combo:
+        if card[0] == 12:
+            test_combo.append([-1, card[1]])
+    
+    '''Combine combo cards with board cards and remove duplicate ranks'''
+    test_board = removeDuplicateRanks(board, [combo.cardA, combo.cardB])
+    test_board = sorted(test_board, key=lambda card: card[0], reverse=True)
+    
+    '''Add wheel ace if necessary'''
+    if test_board[0][0] == 12:
+        test_board.append([-1, test_board[0][1]])
+        
+    '''Check every group of three cards'''
+    ci = 0
+    card_count = 0
+    while len(test_board) - ci >= 3:
+        card_count = 0
+        three_card_test = [test_board[ci], test_board[ci + 1], test_board[ci + 2]]
+        if 2 <= three_card_test[0][0] - three_card_test[2][0] <= 4:
+            for card in three_card_test:
+                if card in test_combo:
+                    card_count += 1
+            if card_count == 2:
+                return True
+        ci += 1
+    return False

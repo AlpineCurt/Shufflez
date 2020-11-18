@@ -957,7 +957,6 @@ class RangeStatsMain(QtWidgets.QWidget):
     def receiveBoard(self, boardCards):
         '''Slot for BoardDisplay sendBoardCards signal'''
         self.board = boardCards
-        #self.made_hands.board = self.board
         self.made_hands.calc_made_hands(self.combos, self.board)
         self.drawing_hands.calc_drawing_hands(self.combos, self.board)
         self.made_hands.update()
@@ -976,9 +975,8 @@ class RangeStatsMain(QtWidgets.QWidget):
         for combo_list in combos:
             combined_combos.extend(combo_list)
         self.combos = combined_combos
-        
         self.made_hands.calc_made_hands(self.combos, self.board)
-        self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.drawing_hands.calc_drawing_hands(self.combos, self.board)         
         self.made_hands.update()
         self.drawing_hands.update()
         
@@ -1002,6 +1000,7 @@ class RangeStatsMain(QtWidgets.QWidget):
     
     def update(self):
         self.made_hands.reconfigHeight()
+        self.drawing_hands.reconfigHeight()
         self.reposition_range_stats()
         
         super().update()
@@ -1077,6 +1076,9 @@ class RangeStats(QtWidgets.QWidget):
         
         drawing_hands = {}
         drawing_hands['Flush Draw'] = False
+        drawing_hands['Straight Draw'] = False
+        drawing_hands['BD Flush Draw'] = False
+        drawing_hands['BD Str Draw'] = False
         
         return drawing_hands
     
@@ -1348,6 +1350,21 @@ class RangeStats(QtWidgets.QWidget):
         flush_draw['Second Nut FD'] = []
         flush_draw['Weak Flush Draw'] = []
         
+        straight_draw = {}
+        straight_draw['OESD'] = []
+        straight_draw['Gutshot'] = []
+        
+        bdfd = {}
+        bdfd['Nut, 2 Card'] = []
+        bdfd['Nut, 1 Card'] = []
+        bdfd['Non-Nut, 2 Card'] = []
+        bdfd['Non-Nut, 1 Card'] = []
+        
+        bdsd = {}
+        bdsd['OpenEnd 3 Str'] = []
+        bdsd['BDSD 2 Card'] = []
+        bdsd['BDSD 1 Card'] = []
+        
         drawing_hands = {}
         for hand in self.drawing_hands:
             drawing_hands[hand] = []
@@ -1363,13 +1380,60 @@ class RangeStats(QtWidgets.QWidget):
                     flush_draw['Second Nut FD'].append(combo)
                 else:
                     flush_draw['Weak Flush Draw'].append(combo)
+            
+            '''Straight Draw'''
+            if ShCalc.straight_draw_check(combo, board):
+                drawing_hands['Straight Draw'].append(combo)
+                if ShCalc.oesd_check(combo, board):
+                    straight_draw['OESD'].append(combo)
+                else:
+                    straight_draw['Gutshot'].append(combo)
+            
+            '''Back Door Flush Draw'''
+            if ShCalc.bdfd_check(combo, board):
+                drawing_hands['BD Flush Draw'].append(combo)
+                if ShCalc.nut_bdfd_check(combo, board):
+                    if ShCalc.two_card_bdfd_check(combo):
+                        bdfd['Nut, 2 Card'].append(combo)
+                    else:
+                        bdfd['Nut, 1 Card'].append(combo)
+                else:
+                    if ShCalc.two_card_bdfd_check(combo):
+                        bdfd['Non-Nut, 2 Card'].append(combo)
+                    else:
+                        bdfd['Non-Nut, 1 Card'].append(combo)
+            
+            '''Back Door Straight Draw'''
+            if ShCalc.bdsd_check(combo, board):
+                drawing_hands['BD Str Draw'].append(combo)
+                if ShCalc.bdsd_open_ended_three_straight_check(combo, board):
+                    bdsd['OpenEnd 3 Str'].append(combo)
+                elif ShCalc.two_card_bdsd_check(combo, board):
+                    bdsd['BDSD 2 Card'].append(combo)
+                else:
+                    bdsd['BDSD 1 Card'].append(combo)
         
         
         '''Construct a list of StatsRow objects for each dict of made hands'''
         flush_draw_total_combos = len(drawing_hands['Flush Draw'])
         if flush_draw_total_combos > 0:
             flush_draw_stats = RangeStats.dictToStatsRows(flush_draw, total_combos)
-            drawing_hands['Flush Draw'].append(flush_draw_stats)        
+            drawing_hands['Flush Draw'].append(flush_draw_stats)
+        
+        straight_draw_combos = len(drawing_hands['Straight Draw'])
+        if straight_draw_combos > 0:
+            straight_draw_stats = RangeStats.dictToStatsRows(straight_draw, total_combos)
+            drawing_hands['Straight Draw'].append(straight_draw_stats)
+        
+        bdfd_combos = len(drawing_hands['BD Flush Draw'])
+        if bdfd_combos > 0:
+            bdfd_stats = RangeStats.dictToStatsRows(bdfd, total_combos)
+            drawing_hands['BD Flush Draw'].append(bdfd_stats)
+        
+        bdsd_combos = len(drawing_hands['BD Str Draw'])
+        if bdsd_combos > 0:
+            bdsd_stats = RangeStats.dictToStatsRows(bdsd, total_combos)
+            drawing_hands['BD Str Draw'].append(bdsd_stats)
 
         finalStats = RangeStats.dictToStatsRows(drawing_hands, total_combos)
          
