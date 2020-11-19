@@ -187,6 +187,7 @@ class RangeDisplay(QtWidgets.QWidget):
                 self.call.append(combo)
         
         self.update()
+        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call])
     
     def mouseReleaseEvent(self, e):
         self.selecting = False
@@ -975,6 +976,11 @@ class RangeStatsMain(QtWidgets.QWidget):
         for combo_list in combos:
             combined_combos.extend(combo_list)
         self.combos = combined_combos
+        
+        if len(self.combos) == 0:
+            self.made_hands.collapse_all()
+            self.drawing_hands.collapse_all()
+        
         self.made_hands.calc_made_hands(self.combos, self.board)
         self.drawing_hands.calc_drawing_hands(self.combos, self.board)         
         self.made_hands.update()
@@ -990,13 +996,15 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.made_hands.move(x, y)
         
         y += self.made_hands.display_height
-        y += spacing
+        if len(self.made_hands.allRows) > 0:
+            y += spacing
         
         self.drawing_hands.setParent(self)
         self.drawing_hands.show()
         self.drawing_hands.move(x, y)
         
-        self.setMinimumSize(self.made_hands.display_width, self.made_hands.display_height + self.drawing_hands.display_height + spacing + 1)
+        self.setMinimumSize(max(self.made_hands.display_width, self.drawing_hands.display_width),
+                            self.made_hands.display_height + self.drawing_hands.display_height + spacing + 1)
     
     def update(self):
         self.made_hands.reconfigHeight()
@@ -1082,6 +1090,29 @@ class RangeStats(QtWidgets.QWidget):
         
         return drawing_hands
     
+    def combo_draws_extended_tracker(self):
+        '''
+        Returns a dict of key='Combo Draw Name' and
+        value=Boolean representing if it is extended or not.
+        Used by self.__init__.
+        As new hand types are added to self.calc_combo_draws they get added
+        here first as the dict created here is used to make combo_draw
+        dict in self.calc_combo_draws.
+        '''
+        
+        combo_draws = {}
+        
+        return combo_draws
+    
+    def collapse_all(self):
+        '''Sets all extended statuses to False.'''
+        
+        for hand in self.made_hands:
+            self.made_hands[hand] = False
+        
+        for hand in self.drawing_hands:
+            self.drawing_hands[hand] = False
+    
     def saveExtendedStatus(self):
         '''Used when a child StatsRow object extends or collapses
         to remember its state.'''
@@ -1111,7 +1142,7 @@ class RangeStats(QtWidgets.QWidget):
                     row.extended = self.drawing_hands[hand]
                     row.calcHeight()
                     break
-                
+
     def calc_made_hands(self, combos, board):
         '''Clear allRows and recalculate made hand stats.'''
         
@@ -1142,7 +1173,7 @@ class RangeStats(QtWidgets.QWidget):
                 row.extendable = True
                 row.calcHeight()
                 for secondary_row in row.secondary_StatsRows:
-                    secondary_row.setParent(row)        
+                    secondary_row.setParent(row)
         
     def find_made_hands(self, combos, board):
         '''
@@ -1464,6 +1495,10 @@ class RangeStats(QtWidgets.QWidget):
     def reconfigHeight(self):
         '''Used by self.update() and when a StatsRow object extends or collapses.
         Sets new MinimumSize for the widget.'''
+        
+        self.display_height = 0
+        self.display_width = 0
+        
         if len(self.allRows) > 0:
             newHeight = 0
             for row in self.allRows:
