@@ -41,7 +41,6 @@ class RangeDisplay(QtWidgets.QWidget):
         self.clearButton.setFixedWidth(55)
         self.clearButton.setFixedHeight(25)
         self.clearButton.clicked.connect(self.onClearClick)
-        #self.clearButton.clicked.connect(self.update)
         layout.addWidget(self.clearButton)
         
         layout.setSpacing(spacing)
@@ -63,6 +62,7 @@ class RangeDisplay(QtWidgets.QWidget):
         self.value = []
         self.bluff = []
         self.call = []
+        self.noAction = []
         
         '''Connect Signals and Slots'''
         self.rangeMatrix.comboRectClicked.connect(self.setSelecting)
@@ -78,6 +78,8 @@ class RangeDisplay(QtWidgets.QWidget):
                 elif len(combo.bluff) == combo.totalCombos and self.action == 'bluff':
                     self.selecting = False
                 elif len(combo.call) == combo.totalCombos and self.action == 'call':
+                    self.selecting = False
+                elif len(combo.noAction) == combo.totalCombos and self.action == '':
                     self.selecting = False
                 else:
                     self.selecting = True
@@ -113,16 +115,18 @@ class RangeDisplay(QtWidgets.QWidget):
             for com in self.call:
                 if combo.text == com.text:
                     self.call.remove(com)
+            for com in self.noAction:
+                if combo.text == com.text:
+                    self.noAction.remove(com)
                 
             if self.action == 'value':   # Now place combo in correct Set
-                #self.value.add(combo)
                 self.value.append(combo)
             elif self.action == 'bluff':
-                #self.bluff.add(combo)
                 self.bluff.append(combo)
             elif self.action == 'call':
-                #self.call.add(combo)
                 self.call.append(combo)
+            elif self.action == '':
+                self.noAction.append(combo)
                 
         elif not self.selecting:
             for com in self.value:
@@ -134,14 +138,12 @@ class RangeDisplay(QtWidgets.QWidget):
             for com in self.call:
                 if combo.text == com.text:
                     self.call.remove(com)
+            for com in self.noAction:
+                if combo.text == com.text:
+                    self.noAction.remove(com)
     
     def onClearClick(self):
         '''Slot for Clear button clicked signal'''
-        """
-        self.rangeMatrix.clearGrid()
-        self.value.clear()
-        self.bluff.clear()
-        self.call.clear()"""
         
         if self.action == 'value':
             self.value.clear()
@@ -153,11 +155,12 @@ class RangeDisplay(QtWidgets.QWidget):
             self.value.clear()
             self.bluff.clear()
             self.call.clear()
+            self.noAction.clear()
             self.rangeMatrix.clearGrid()
         
         self.rangeText.clear()
         
-        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call])
+        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
         
         self.update()
         
@@ -177,6 +180,9 @@ class RangeDisplay(QtWidgets.QWidget):
             for com in self.call:
                 if combo.text == com.text:
                     self.call.remove(com)
+            for com in self.noAction:
+                if combo.text == com.text:
+                    self.noAction.remove(com)
             
             '''Add the combo to the selected action Set'''
             if self.action == 'value':
@@ -185,13 +191,15 @@ class RangeDisplay(QtWidgets.QWidget):
                 self.bluff.append(combo)
             elif self.action == 'call':
                 self.call.append(combo)
+            else:
+                self.noAction.append(combo)
         
         self.update()
-        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call])
+        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
     
     def mouseReleaseEvent(self, e):
         self.selecting = False
-        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call])
+        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
         super().mouseReleaseEvent(e)
     
     def update(self):
@@ -201,9 +209,10 @@ class RangeDisplay(QtWidgets.QWidget):
         self.rangeMatrix.setValue(self.value)
         self.rangeMatrix.setBluff(self.bluff)
         self.rangeMatrix.setCall(self.call)
+        self.rangeMatrix.setNoAction(self.noAction)
         
         '''Update ActionBuckets'''
-        self.sendRangesToActionBuckets.emit([self.value, self.bluff, self.call])
+        self.sendRangesToActionBuckets.emit([self.value, self.bluff, self.call, self.noAction])
         
         '''Update RangeText'''
         self.rangeText.clear()
@@ -218,6 +227,7 @@ class RangeDisplay(QtWidgets.QWidget):
             allActionCombos.extend(self.value)
             allActionCombos.extend(self.bluff)
             allActionCombos.extend(self.call)
+            allActionCombos.extend(self.noAction)
             self.rangeText.setText(self.rangeText.rangeListToString(allActionCombos))
         
         super().update()
@@ -278,6 +288,7 @@ class RangeMatrix(QtWidgets.QWidget):
         self.valueBrush = [255, 77, 77]
         self.bluffBrush = [255, 166, 166]
         self.callBrush = [103, 178, 45]
+        self.noActionBrush = [250, 206, 60]
         
         '''Tracks if user is clicking and dragging to select comboRects'''
         self.selecting = False
@@ -316,6 +327,7 @@ class RangeMatrix(QtWidgets.QWidget):
             combo.value.clear()
             combo.bluff.clear()
             combo.call.clear()
+            combo.noAction.clear()
         self.update()
     
     def setValue(self, valueCombos):
@@ -349,6 +361,17 @@ class RangeMatrix(QtWidgets.QWidget):
             for rect in self.matrix:
                 if combo.comboRect == rect.name:
                     rect.call.add(combo)
+                    break
+    
+    def setNoAction(self, noActionCombos):
+        '''
+        Places each combo into the correct ComboRect's noAction set.
+        '''
+        
+        for combo in noActionCombos:
+            for rect in self.matrix:
+                if combo.comboRect == rect.name:
+                    rect.noAction.add(combo)
                     break
     
     def mousePressEvent(self, e):
@@ -412,6 +435,10 @@ class RangeMatrix(QtWidgets.QWidget):
         callBrush.setColor(QtGui.QColor(self.callBrush[0], self.callBrush[1], self.callBrush[2]))
         callBrush.setStyle(Qt.SolidPattern)
         
+        noActionBrush = QtGui.QBrush()
+        noActionBrush.setColor(QtGui.QColor(self.noActionBrush[0], self.noActionBrush[1], self.noActionBrush[2]))
+        noActionBrush.setStyle(Qt.SolidPattern)
+        
         for combo in self.matrix:
             
             '''Fill with base color'''
@@ -436,6 +463,12 @@ class RangeMatrix(QtWidgets.QWidget):
             newY = combo.rect.y() + combo.boxLen
             newWidth = combo.boxLen
             newLen = 0         
+            
+            for com in combo.noAction:
+                newY -= div
+                newLen += div
+            painter.fillRect(ceil(newX), ceil(newY), newWidth, newLen, noActionBrush)
+            newLen = 0
             
             for com in combo.call:
                 newY -= div
@@ -498,6 +531,7 @@ class ComboRect(QtWidgets.QWidget):
         self.value = set()
         self.bluff = set()
         self.call = set()
+        self.noAction = set()
     
     def buildCombos(self):
         '''
@@ -948,6 +982,7 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.value = []
         self.bluff = []
         self.call = []
+        self.noAction = []
         
         self.made_hands = RangeStats()
         self.made_hands.setParent(self)
@@ -970,8 +1005,9 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.value = combos[0]
         self.bluff = combos[1]
         self.call = combos[2]
+        self.noAction = combos[3]
         
-        '''Combine value, bluff, call into single combo list.'''
+        '''Combine value, bluff, call, noAction into single combo list.'''
         combined_combos = []
         for combo_list in combos:
             combined_combos.extend(combo_list)
@@ -1030,6 +1066,7 @@ class RangeStats(QtWidgets.QWidget):
         self.value = []
         self.bluff = []
         self.call = []
+        self.noAction = []
         
         self.display_height = 0
         self.display_width = 0
@@ -1818,6 +1855,19 @@ class ActionBuckets(QtWidgets.QWidget):
         layout.addWidget(self.valueBluffRatio, 0, 4, Qt.AlignLeft)
         layout.addWidget(self.contFreqNum, 1, 4, Qt.AlignLeft)
         
+        '''Total Combos and Unassigned Combos Labels'''
+        self.noActionLabel = QtWidgets.QLabel('Unassigned Combos: 0')
+        self.totalCombosLabel = QtWidgets.QLabel('Total Combos: 0')
+        
+        comboFont.setPixelSize(13)
+        comboFont.setBold(False)
+        self.noActionLabel.setFont(comboFont)
+        self.totalCombosLabel.setFont(comboFont)
+        
+        layout.addWidget(self.noActionLabel, 4, 0, 1, 3, Qt.AlignLeft)
+        layout.addWidget(self.totalCombosLabel, 4, 3, 1, 2, Qt.AlignLeft)
+        layout.setRowMinimumHeight(3, 5)
+        
         '''Format the QGridLayout'''
         layout.setVerticalSpacing(0)
         
@@ -1832,6 +1882,7 @@ class ActionBuckets(QtWidgets.QWidget):
         self.value = set()
         self.bluff = set()
         self.call = set()
+        self.noAction = set()
         self.totalCombos = 0
         self.board = []
         
@@ -1862,6 +1913,7 @@ class ActionBuckets(QtWidgets.QWidget):
         self.value = ranges[0]
         self.bluff = ranges[1]
         self.call = ranges[2]
+        self.noAction = ranges[3]
         
         self.update()
     
@@ -1877,8 +1929,9 @@ class ActionBuckets(QtWidgets.QWidget):
         self.value = ShCalc.removeBlockedCombos(self.value, self.board)
         self.bluff = ShCalc.removeBlockedCombos(self.bluff, self.board)
         self.call = ShCalc.removeBlockedCombos(self.call, self.board)
+        self.noAction = ShCalc.removeBlockedCombos(self.noAction, self.board)
         
-        self.totalCombos = len(self.value) + len(self.bluff) + len(self.call)
+        self.totalCombos = len(self.value) + len(self.bluff) + len(self.call) + len(self.noAction)
         
         self.valComLabel.setText(str(len(self.value)))
         self.bluffComLabel.setText(str(len(self.bluff)))
@@ -1922,7 +1975,22 @@ class ActionBuckets(QtWidgets.QWidget):
             valueNum = str(len(self.value))
             bluffNum = str(len(self.bluff))
         ratio_text = valueNum + ' : ' + bluffNum
-        self.valueBluffRatio.setText(ratio_text)      
+        self.valueBluffRatio.setText(ratio_text)
+        
+        '''Update noActionLabel and totalCombosLabel'''
+        if self.totalCombos != 0:
+            noActionNum = str(len(self.noAction))
+            noActionFreq = round(len(self.noAction) / self.totalCombos * 100, 1)
+            if noActionFreq.is_integer():
+                noActionFreq = round(noActionFreq)
+            noActionNumText = 'Unassigned Combos:  ' + noActionNum + ' (' + str(noActionFreq) + '%' + ')'
+            self.noActionLabel.setText(noActionNumText)
+            
+            totalCombosText = 'Total Combos:  ' + str(self.totalCombos)
+            self.totalCombosLabel.setText(totalCombosText)
+        else:
+            self.noActionLabel.setText('Unassigned Combos:  0')
+            self.totalCombosLabel.setText('Total Combos:  0')
         
         super().update()
 
