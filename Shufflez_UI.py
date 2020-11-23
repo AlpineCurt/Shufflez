@@ -5,7 +5,6 @@ Main Program to run application.
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
-#from math import ceil
 import ShufflezWidgets
 
 class Ui_MainWindow(QtWidgets.QMainWindow):
@@ -90,6 +89,7 @@ class PlayerWindow(QtWidgets.QWidget):
         self.boardDisplay.sendBoardCards.connect(self.rangeStatsMain.receiveBoard)
         self.boardDisplay.sendBoardCards.connect(self.action_buckets.receiveBoard)
         self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsMain.receiveCombos)
+        self.rangeStatsMain.sendComboActionsToRangeDisplay.connect(self.rangeDisplay.receiveActionList)
 
 
 if __name__ == "__main__":

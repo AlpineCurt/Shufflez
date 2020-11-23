@@ -964,6 +964,9 @@ def straight_draw_check(combo, board):
     if len(board) == 5:
         return False
     
+    if straight_check(combo, board):
+        return False
+    
     '''At least one hole card rank must differ from board ranks'''
     board_ranks = []
     for card in board:

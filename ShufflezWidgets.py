@@ -12,6 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 from math import ceil
 import ShufflezCalc as ShCalc
+from random import randint
 
 """RANGE MATRIX and related classes"""
 
@@ -45,7 +46,7 @@ class RangeDisplay(QtWidgets.QWidget):
         
         layout.setSpacing(spacing)
         
-        self.totalHeight = self.rangeMatrix.matrixHeight + spacing * 2 + self.clearButton.height() + self.rangeText.height()
+        self.totalHeight = self.rangeMatrix.matrixHeight + spacing * 2 + self.rangeText.height() + self.clearButton.height()
         
         sizepolicy = QtWidgets.QSizePolicy()
         sizepolicy.setVerticalStretch(0)
@@ -68,6 +69,33 @@ class RangeDisplay(QtWidgets.QWidget):
         self.rangeMatrix.comboRectClicked.connect(self.setSelecting)
         self.rangeMatrix.mouseOver.connect(self.comboRectMouseMove)
         self.rangeText.enterPressed.connect(self.setRangeFromText)
+    
+    def receiveActionList(self, actionList):
+        '''Slot to respond when RangeStatsMain sends a list of combos
+        for each action (value, bluff, call).'''
+        
+        self.rangeMatrix.clearGrid()
+        
+        self.value = actionList[0]
+        self.rangeMatrix.setValue(actionList[0])
+        self.bluff = actionList[1]
+        self.rangeMatrix.setBluff(actionList[1])
+        self.call = actionList[2]
+        self.rangeMatrix.setCall(actionList[2])
+        self.noAction = actionList[3]
+        self.rangeMatrix.setNoAction(actionList[3])
+        
+        #for combo in self.value:
+            #if combo in self.noAction:
+                #self.noAction.remove(combo)
+        #for combo in self.bluff:
+            #if combo in self.noAction:
+                #self.noAction.remove(combo)
+        #for combo in self.call:
+            #if combo in self.noAction:
+                #self.noAction.remove(combo)
+        
+        self.update()
     
     def setSelecting(self, comboRectName):
         
@@ -210,6 +238,7 @@ class RangeDisplay(QtWidgets.QWidget):
         self.rangeMatrix.setBluff(self.bluff)
         self.rangeMatrix.setCall(self.call)
         self.rangeMatrix.setNoAction(self.noAction)
+        self.rangeMatrix.update()
         
         '''Update ActionBuckets'''
         self.sendRangesToActionBuckets.emit([self.value, self.bluff, self.call, self.noAction])
@@ -883,7 +912,7 @@ class RangeText(QtWidgets.QTextEdit):
         
         '''Append single combos to string output'''
         for combo in singleCombos:
-            rangeText += combo + ', '
+            rangeText += combo.text + ', '
         
         '''Reset all Trackers'''
         i = 0
@@ -962,7 +991,7 @@ class RangeStatsDisplay(QtWidgets.QScrollArea):
     
     def __init__(self):
         super().__init__()
-
+        
 
 class RangeStatsMain(QtWidgets.QWidget):
     '''
@@ -972,6 +1001,8 @@ class RangeStatsMain(QtWidgets.QWidget):
     emits signals indicating any changes in combos' action assignment.
     Intended to be the primary child widget of RangeStatsDisplay.
     '''
+    
+    sendComboActionsToRangeDisplay = QtCore.pyqtSignal(list)
     
     def __init__(self):
         super().__init__()
@@ -989,12 +1020,27 @@ class RangeStatsMain(QtWidgets.QWidget):
         
         self.drawing_hands = RangeStats()
         self.drawing_hands.setParent(self)
+        
+    def connectStatsRowSignals(self):
+        '''Used after calculating made and/or drawing hands to
+        connect every StatsRow signal to receiveComboActions.'''
+        
+        for row in self.made_hands.allRows:
+            row.sendCombosToRangeStatsMain.connect(self.receiveComboActions)
+            for row2 in row.secondary_StatsRows:
+                row2.sendCombosToRangeStatsMain.connect(self.receiveComboActions)
+        
+        for row in self.drawing_hands.allRows:
+            row.sendCombosToRangeStatsMain.connect(self.receiveComboActions)
+            for row2 in row.secondary_StatsRows:
+                row2.sendCombosToRangeStatsMain.connect(self.receiveComboActions)
     
     def receiveBoard(self, boardCards):
         '''Slot for BoardDisplay sendBoardCards signal'''
         self.board = boardCards
         self.made_hands.calc_made_hands(self.combos, self.board)
         self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.connectStatsRowSignals()
         self.made_hands.update()
         self.drawing_hands.update()
         
@@ -1018,10 +1064,138 @@ class RangeStatsMain(QtWidgets.QWidget):
             self.drawing_hands.collapse_all()
         
         self.made_hands.calc_made_hands(self.combos, self.board)
-        self.drawing_hands.calc_drawing_hands(self.combos, self.board)         
+        self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.connectStatsRowSignals()
         self.made_hands.update()
         self.drawing_hands.update()
         
+        self.update()
+    
+    def receiveComboActions(self, actionList):
+        '''
+        actionList is a list of lists [value, bluff, call].
+        This will go through every statsRow object within each RangeStats
+        object and if the combo exists within that statsRow, the combo
+        will be assigned to the correct action within that statsRow.
+        '''
+        
+        #self.value.clear()
+        #self.bluff.clear()
+        #self.call.clear()
+        #self.noAction.clear()
+        
+        for combo in actionList[0]:
+            '''Value combos'''
+            #self.value.append(combo)
+            if combo not in self.value:
+                self.value.append(combo)
+            if combo in self.bluff:
+                self.bluff.remove(combo)
+            if combo in self.call:
+                self.call.remove(combo)
+            if combo in self.noAction:
+                self.noAction.remove(combo)
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.value:
+                        row.value.add(combo)
+                    row.bluff.discard(combo)
+                    row.call.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.value:
+                                row2.value.add(combo)
+                            row2.bluff.discard(combo)
+                            row2.call.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.value:
+                        row.value.add(combo)
+                    row.bluff.discard(combo)
+                    row.call.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.value:
+                                row2.value.add(combo)
+                            row2.bluff.discard(combo)
+                            row2.call.discard(combo)
+        
+        for combo in actionList[1]:
+            '''Bluff Combos'''
+            #self.bluff.append(combo)
+            if combo not in self.bluff:
+                self.bluff.append(combo)
+            if combo in self.value:
+                self.value.remove(combo)
+            if combo in self.call:
+                self.call.remove(combo)
+            if combo in self.noAction:
+                self.noAction.remove(combo)
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.bluff:
+                        row.bluff.add(combo)
+                    row.value.discard(combo)
+                    row.call.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.bluff:
+                                row2.bluff.add(combo)
+                            row2.value.discard(combo)
+                            row2.call.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.bluff:
+                        row.bluff.add(combo)
+                    row.value.discard(combo)
+                    row.call.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.bluff:
+                                row2.bluff.add(combo)
+                            row2.value.discard(combo)
+                            row2.call.discard(combo)
+        
+        for combo in actionList[2]:
+            '''Call Combos'''
+            #self.call.append(combo)
+            if combo not in self.call:
+                self.call.append(combo)
+            if combo in self.bluff:
+                self.bluff.remove(combo)
+            if combo in self.value:
+                self.value.remove(combo)
+            if combo in self.noAction:
+                self.noAction.remove(combo)
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.call:
+                        row.call.add(combo)
+                    row.value.discard(combo)
+                    row.bluff.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.call:
+                                row2.call.add(combo)
+                            row2.value.discard(combo)
+                            row2.bluff.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.call:
+                        row.call.add(combo)
+                    row.value.discard(combo)
+                    row.bluff.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.call:
+                                row2.call.add(combo)
+                            row2.value.discard(combo)
+                            row2.bluff.discard(combo)
+        for combo in actionList[3]:
+            '''noAction combos'''
+            self.noAction.append(combo)
+        
+        self.sendComboActionsToRangeDisplay.emit([self.value, self.bluff, self.call, self.noAction])
         self.update()
     
     def reposition_range_stats(self):
@@ -1587,6 +1761,7 @@ class StatsRow(QtWidgets.QWidget):
     '''
     
     extendSignal = QtCore.pyqtSignal()
+    sendCombosToRangeStatsMain = QtCore.pyqtSignal(list)
     
     def __init__(self, name, combo_list, total_combos, secondary_rows = []):
         super().__init__()
@@ -1606,9 +1781,10 @@ class StatsRow(QtWidgets.QWidget):
             row.move(row.x(), (i + 1) * height)
             row.hide()
         
-        self.value = []
-        self.bluff = []
-        self.call = []
+        self.value = set()
+        self.bluff = set()
+        self.call = set()
+        self.noAction = set()
         
         border_height = height
         for row in self.secondary_StatsRows:
@@ -1682,7 +1858,7 @@ class StatsRow(QtWidgets.QWidget):
         '''RGB values for display'''
         self.valueBrush = [255, 77, 77]
         self.bluffBrush = [255, 166, 166]
-        self.callBrush = [103, 178, 45]        
+        self.callBrush = [103, 178, 45]
         
         self.extendable = False
         self.extended = False
@@ -1706,20 +1882,55 @@ class StatsRow(QtWidgets.QWidget):
         self.drawHeight = height
         self.setMinimumSize(self.width + 3, self.drawHeight + 3)
     
+    def clearActions(self):
+        '''Clears combos from all action lists'''
+        self.value.clear()
+        self.bluff.clear()
+        self.call.clear()
+    
+    def setValue(self):
+        '''Called when valueRect is clicked'''
+        self.clearActions()
+        for combo in self.combos:
+            self.value.add(combo)
+        self.sendCombosToRangeStatsMain.emit([self.value, self.bluff, self.call, self.noAction])
+    
+    def setBluff(self):
+        '''Called when bluffRect is clicked'''
+        self.clearActions()
+        for combo in self.combos:
+            self.bluff.add(combo)
+        self.sendCombosToRangeStatsMain.emit([self.value, self.bluff, self.call, self.noAction])
+    
+    def setCall(self):
+        '''Called when callRect is clicked'''
+        self.clearActions()
+        for combo in self.combos:
+            self.call.add(combo)
+        self.sendCombosToRangeStatsMain.emit([self.value, self.bluff, self.call, self.noAction])
+    
     def mousePressEvent(self, e):
-        if self.extendable:
-            if not self.extended:
-                self.extended = True
-                self.calcHeight()
-                for row in self.secondary_StatsRows:
-                    row.show()
+        if e.button() == Qt.LeftButton:
+            if self.valueRect.contains(e.x(), e.y()):
+                self.setValue()
+            elif self.bluffRect.contains(e.x(), e.y()):
+                self.setBluff()
+            elif self.callRect.contains(e.x(), e.y()):
+                self.setCall()
             else:
-                self.extended = False
-                self.calcHeight()
-                for row in self.secondary_StatsRows:
-                    row.hide()
+                if self.extendable:
+                    if not self.extended:
+                        self.extended = True
+                        self.calcHeight()
+                        for row in self.secondary_StatsRows:
+                            row.show()
+                    else:
+                        self.extended = False
+                        self.calcHeight()
+                        for row in self.secondary_StatsRows:
+                            row.hide()
+                    self.extendSignal.emit()
             self.update()
-            self.extendSignal.emit()
         
     def paintEvent(self, e):
         
@@ -1845,7 +2056,7 @@ class ActionBuckets(QtWidgets.QWidget):
         layout.addWidget(self.contFreqLabel, 1, 3, Qt.AlignLeft)
         
         self.valueBluffRatio = QtWidgets.QLabel('0 : 0')
-        self.contFreqNum = QtWidgets.QLabel('0%')
+        self.contFreqNum = QtWidgets.QLabel('')
         
         comboFont.setBold(True)
         comboFont.setPixelSize(15)
@@ -1977,6 +2188,16 @@ class ActionBuckets(QtWidgets.QWidget):
         ratio_text = valueNum + ' : ' + bluffNum
         self.valueBluffRatio.setText(ratio_text)
         
+        '''Update Continue Frequency'''
+        if len(self.board) < 3:
+            self.contFreqNum.setText('')
+        else:
+            contCombos = len(self.value) + len(self.bluff) + len(self.call)
+            contFreq = round(contCombos / self.totalCombos * 100, 1)
+            if contFreq.is_integer():
+                contFreq = round(contFreq)
+            self.contFreqNum.setText(str(contFreq) + '%')
+        
         '''Update noActionLabel and totalCombosLabel'''
         if self.totalCombos != 0:
             noActionNum = str(len(self.noAction))
@@ -2086,7 +2307,7 @@ class BoardDisplay(QtWidgets.QWidget):
         
         self.scale = .6  ### Size of Cards changed here ###
         
-        self.board = ''
+        self.board = []
         
         '''Add Labels to grid'''
         flopLabel = QtWidgets.QLabel('Flop')
@@ -2127,6 +2348,12 @@ class BoardDisplay(QtWidgets.QWidget):
         self.boardSelection = BoardSelection()
     
     def onCardClick(self):
+        '''Update Dialog board cards with currently selected cards'''
+        self.boardSelection.clear()
+        self.boardSelection.board = self.board.copy()
+        for card in self.boardSelection.board:
+            self.boardSelection.switchSelection.emit(card)
+        
         if self.boardSelection.exec():
             self.board = self.boardSelection.board
             self.sendBoardCards.emit(self.board)
@@ -2154,6 +2381,10 @@ class BoardDisplay(QtWidgets.QWidget):
             self.river.revealedCard = self.river.getCard(self.board[4][0], self.board[4][1], self.scale)    
         
         super().update()
+    
+    def paintEvent(self, e):
+        '''For checking stack data'''
+        pass
 
 
 class BoardCard(QtWidgets.QWidget):
@@ -2229,7 +2460,7 @@ class BoardSelection(QtWidgets.QDialog):
     
     switchSelection = QtCore.pyqtSignal(list)
     
-    def __init__(self):
+    def __init__(self, board=[]):
         super().__init__()
         
         self.setModal(True)
@@ -2245,20 +2476,36 @@ class BoardSelection(QtWidgets.QDialog):
         self.ok_button = QtWidgets.QPushButton("OK", self)
         self.ok_button.setDefault(True)
         self.ok_button.clicked.connect(self.accept)
-        layout.addWidget(self.ok_button, 4, 1, 4, 2, Qt.AlignLeft)
+        layout.addWidget(self.ok_button, 4, 0, 4, 2, Qt.AlignLeft)
         
         self.cancel_button = QtWidgets.QPushButton("Cancel", self)
         self.cancel_button.clicked.connect(self.reject)
         self.cancel_button.setDefault(False)
-        layout.addWidget(self.cancel_button, 4, 3, 4, 2, Qt.AlignLeft)
+        layout.addWidget(self.cancel_button, 4, 2, 4, 2, Qt.AlignLeft)
         
         self.clear_button = QtWidgets.QPushButton("Clear", self)
         self.clear_button.clicked.connect(self.clear)
-        layout.addWidget(self.clear_button, 4, 6, 4, 2, Qt.AlignLeft)
+        layout.addWidget(self.clear_button, 4, 5, 4, 2, Qt.AlignLeft)
         
-        self.board = []
+        self.random_flop_button = QtWidgets.QPushButton("Random Flop", self)
+        self.random_flop_button.clicked.connect(self.random_flop)
+        layout.addWidget(self.random_flop_button, 4, 7, 4, 2)
+        
+        self.random_turn_button = QtWidgets.QPushButton("Random Turn", self)
+        self.random_turn_button.clicked.connect(self.random_turn)
+        layout.addWidget(self.random_turn_button, 4, 9, 4, 2)
+        
+        self.random_river_button = QtWidgets.QPushButton("Random River", self)
+        self.random_river_button.clicked.connect(self.random_river)
+        layout.addWidget(self.random_river_button, 4, 11, 4, 2)
+        
+        self.board = board
         
         self.setLayout(layout)
+    
+    def reject(self):
+        self.clear()
+        super().reject()
         
     def buildCardGrid(self, scale):
         '''
@@ -2298,6 +2545,81 @@ class BoardSelection(QtWidgets.QDialog):
         for card in self.board:
             self.switchSelection.emit(card)
         self.board = []
+    
+    def random_card(self):
+        '''Selects a random rank, suit and checks if that card exists
+        in self.board.  If not, returns the card.'''
+        
+        while True:
+            card = [randint(0, 12), randint(0, 3)]
+            if card not in self.board:
+                return card
+    
+    def random_flop(self):
+        '''Clears the board selection and selects three random cards.'''
+        
+        self.clear()
+        for i in range(3):
+            card = self.random_card()
+            self.board.append(card)
+            self.switchSelection.emit(card)
+    
+    def random_turn(self):
+        '''
+        If no cards selected: chooses four random cards.
+        If flop cards present, selects random fourth card.
+        '''
+        
+        if len(self.board) == 0:
+            for i in range(4):
+                card = self.random_card()
+                self.board.append(card)
+                self.switchSelection.emit(card)
+        elif len(self.board) == 3:
+            card = self.random_card()
+            self.board.append(card)
+            self.switchSelection.emit(card)
+        elif len(self.board) == 4:
+            self.switchSelection.emit(self.board[-1])
+            del self.board[-1]
+            card = self.random_card()
+            self.board.append(card)
+            self.switchSelection.emit(card)
+        elif len(self.board) == 5:
+            for i in range(2):
+                self.switchSelection.emit(self.board[-1])
+                del self.board[-1]
+            card = self.random_card()
+            self.board.append(card)
+            self.switchSelection.emit(card)
+    
+    def random_river(self):
+        '''
+        If no cards are selected, chooses five random cards:
+        If flop present, chooses two random cards.
+        if turn present, chooses one random card.
+        '''
+        
+        if len(self.board) == 0:
+            for i in range(5):
+                card = self.random_card()
+                self.board.append(card)
+                self.switchSelection.emit(card)
+        elif len(self.board) == 3:
+            for i in range(2):
+                card = self.random_card()
+                self.board.append(card)
+                self.switchSelection.emit(card)
+        elif len(self.board) == 4:
+            card = self.random_card()
+            self.board.append(card)
+            self.switchSelection.emit(card)
+        elif len(self.board) == 5:
+            self.switchSelection.emit(self.board[-1])
+            del self.board[-1]
+            card = self.random_card()
+            self.board.append(card)
+            self.switchSelection.emit(card)
         
 
 """Data Storage and Range Info Transfer Objects"""
