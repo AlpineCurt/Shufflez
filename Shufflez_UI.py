@@ -54,10 +54,12 @@ class PlayerWindow(QtWidgets.QWidget):
     Contains:  range matrix, stats display, action buttons,
     and board cards.'''
     
-    def __init__(self):
+    def __init__(self, position=None):
         super().__init__()
         
         layout = QtWidgets.QGridLayout()
+        
+        self.position = position
         
         '''Create ActionBuckets'''
         self.action_buckets = ShufflezWidgets.ActionBuckets()
@@ -68,28 +70,27 @@ class PlayerWindow(QtWidgets.QWidget):
         layout.addWidget(self.rangeDisplay, 1, 0, Qt.AlignCenter)
         
         '''Create RangeStatsDisplay'''
-        self.rangeStatsMain = ShufflezWidgets.RangeStatsMain()
         self.rangeStatsDisplay = ShufflezWidgets.RangeStatsDisplay()
-        self.rangeStatsDisplay.setFixedSize(300, self.rangeDisplay.totalHeight)
-        layout.addWidget(self.rangeStatsDisplay, 1, 1, Qt.AlignCenter)
-        self.rangeStatsDisplay.setWidget(self.rangeStatsMain)
+        self.rangeStatsDisplay.setMinimumSize(305, self.rangeDisplay.totalHeight)
+        self.rangeStatsDisplay.scrollArea.setFixedSize(296, self.rangeDisplay.totalHeight - 25)
+        layout.addWidget(self.rangeStatsDisplay, 1, 1, Qt.AlignTop)
         
         '''Create BoardDisplay'''
         self.boardDisplay = ShufflezWidgets.BoardDisplay()
         layout.addWidget(self.boardDisplay, 0, 1, Qt.AlignCenter)
         
         layout.setVerticalSpacing(0)
-        self.setLayout(layout)       
+        self.setLayout(layout)
         
         self.preflop = True  # Preflop condiditon determines labeling, and RangeStatsDisplay mode
         
         '''Connect Signals and Slots between Widgets'''
         self.action_buckets.actionSelected.connect(self.rangeDisplay.setAction)
         self.rangeDisplay.sendRangesToActionBuckets.connect(self.action_buckets.receiveRanges)
-        self.boardDisplay.sendBoardCards.connect(self.rangeStatsMain.receiveBoard)
+        self.boardDisplay.sendBoardCards.connect(self.rangeStatsDisplay.rangeStatsMain.receiveBoard)
         self.boardDisplay.sendBoardCards.connect(self.action_buckets.receiveBoard)
-        self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsMain.receiveCombos)
-        self.rangeStatsMain.sendComboActionsToRangeDisplay.connect(self.rangeDisplay.receiveActionList)
+        self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsDisplay.rangeStatsMain.receiveCombos)
+        self.rangeStatsDisplay.rangeStatsMain.sendComboActionsToRangeDisplay.connect(self.rangeDisplay.receiveActionList)
 
 
 if __name__ == "__main__":
