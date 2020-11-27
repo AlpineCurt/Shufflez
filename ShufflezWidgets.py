@@ -1205,7 +1205,7 @@ class RangeStatsMain(QtWidgets.QWidget):
     
     def clearActions(self):
         '''Clears action assignments for all StatsRows and sets all
-        combos to noAciton.'''
+        combos to noAction.'''
         
         self.value.clear()
         self.bluff.clear()
@@ -1833,6 +1833,7 @@ class StatsRow(QtWidgets.QWidget):
         self.valueLock = set()
         self.bluffLock = set()
         self.callLock = set()
+        self.noActionLock = set()
         
         border_height = height
         for row in self.secondary_StatsRows:
@@ -1868,6 +1869,10 @@ class StatsRow(QtWidgets.QWidget):
         rectX += height * rectScale + rectSpacing
         self.callRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
         rectX += height * rectScale   # Used later for label positioning
+        
+        '''Action Rect Lock Icon'''
+        lock = QtGui.QPixmap('lock.png')
+        self.lock = lock.scaled(height * rectScale, height * rectScale, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
         
         '''Lables'''
         font = QtGui.QFont()
@@ -1957,6 +1962,19 @@ class StatsRow(QtWidgets.QWidget):
             self.call.add(combo)
         self.sendCombosToRangeStatsMain.emit([self.value, self.bluff, self.call, self.noAction])
     
+    def setValueLock(self):
+        '''Called when valueRect is right clicked'''
+        
+        # First check if user is locking or unlocking
+    
+    def setBluffLock(self):
+        '''Called when bluffRect is right clicked'''
+        pass
+    
+    def setCallLock(self):
+        '''Called when callRect is right clicked'''
+        pass
+    
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             if self.valueRect.contains(e.x(), e.y()):
@@ -2018,6 +2036,18 @@ class StatsRow(QtWidgets.QWidget):
         painter.drawText(self.valueRect, Qt.AlignCenter, 'V')
         painter.drawText(self.bluffRect, Qt.AlignCenter, 'B')
         painter.drawText(self.callRect, Qt.AlignCenter, 'C')
+        
+        '''Draw Lock Icon'''
+        painter.setOpacity(.75)
+        
+        if len(self.valueLock) > 0:
+            painter.drawPixmap(self.valueRect, self.lock)
+        if len(self.bluffLock) > 0:
+            painter.drawPixmap(self.bluffRect, self.lock)
+        if len(self.callLock) > 0:
+            painter.drawPixmap(self.callRect, self.lock)
+            
+        painter.setOpacity(1.0)
         
         '''Draw the correct triangle'''
         if self.extendable:
