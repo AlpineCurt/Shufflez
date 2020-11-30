@@ -71,8 +71,8 @@ class PlayerWindow(QtWidgets.QWidget):
         
         '''Create RangeStatsDisplay'''
         self.rangeStatsDisplay = ShufflezWidgets.RangeStatsDisplay()
-        self.rangeStatsDisplay.setMinimumSize(305, self.rangeDisplay.totalHeight)
-        self.rangeStatsDisplay.scrollArea.setFixedSize(296, self.rangeDisplay.totalHeight - 25)
+        self.rangeStatsDisplay.setMinimumSize(335, self.rangeDisplay.totalHeight)
+        self.rangeStatsDisplay.scrollArea.setFixedSize(330, self.rangeDisplay.totalHeight - 25)
         layout.addWidget(self.rangeStatsDisplay, 1, 1, Qt.AlignTop)
         
         '''Create BoardDisplay'''

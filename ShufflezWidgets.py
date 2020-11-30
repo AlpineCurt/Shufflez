@@ -1811,7 +1811,7 @@ class StatsRow(QtWidgets.QWidget):
     def __init__(self, name, combo_list, total_combos, secondary_rows = []):
         super().__init__()
         
-        width, height = 275, 25
+        width, height = 305, 25
         
         self.width, self.height = width, height
         self.drawHeight = self.height
@@ -1830,10 +1830,7 @@ class StatsRow(QtWidgets.QWidget):
         self.bluff = set()
         self.call = set()
         self.noAction = set()
-        self.valueLock = set()
-        self.bluffLock = set()
-        self.callLock = set()
-        self.noActionLock = set()
+        self.lockedCombos = set()
         
         border_height = height
         for row in self.secondary_StatsRows:
@@ -1857,12 +1854,14 @@ class StatsRow(QtWidgets.QWidget):
         self.triExtended.lineTo(int((tri_x + 10 / 2)), tri_y)
         self.triExtended.closeSubpath()
         
-        '''Value, Bluff, and Call Rects'''
+        '''Lock, Value, Bluff, and Call Rects'''
         rectScale = .75       # % of StatsRow height
         rectSpacing = 5       # pixels between actionRects
         rectX = (height - rectScale * height) / 2  # Starting x coord for left most rect
         rectY = (height - rectScale * height) / 2  # Y coord for rects
         
+        self.lockRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
+        rectX += height * rectScale + rectSpacing
         self.valueRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
         rectX += height * rectScale + rectSpacing
         self.bluffRect = QtCore.QRect(rectX, rectY, height * rectScale, height * rectScale)
@@ -1873,6 +1872,8 @@ class StatsRow(QtWidgets.QWidget):
         '''Action Rect Lock Icon'''
         lock = QtGui.QPixmap('lock.png')
         self.lock = lock.scaled(height * rectScale, height * rectScale, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        unlock = QtGui.QPixmap('unlock.png')
+        self.unlock = unlock.scaled(height * rectScale, height * rectScale, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
         
         '''Lables'''
         font = QtGui.QFont()
@@ -2038,16 +2039,11 @@ class StatsRow(QtWidgets.QWidget):
         painter.drawText(self.callRect, Qt.AlignCenter, 'C')
         
         '''Draw Lock Icon'''
-        painter.setOpacity(.75)
+        if len(self.lockedCombos) == len(self.combos):
+            painter.drawPixmap(self.lockRect, self.lock)
+        else:
+            painter.drawPixmap(self.lockRect, self.unlock)
         
-        if len(self.valueLock) > 0:
-            painter.drawPixmap(self.valueRect, self.lock)
-        if len(self.bluffLock) > 0:
-            painter.drawPixmap(self.bluffRect, self.lock)
-        if len(self.callLock) > 0:
-            painter.drawPixmap(self.callRect, self.lock)
-            
-        painter.setOpacity(1.0)
         
         '''Draw the correct triangle'''
         if self.extendable:
@@ -2810,3 +2806,17 @@ class Combo():
                    'A2o', 'K2o', 'Q2o', 'J2o', 'T2o', '92o', '82o', '72o', '62o', '52o', '42o', '32o', '22']
         
         return gridref.index(self.comboRect)
+
+
+class ActionList():
+    '''
+    Used to send Sets of combos for each action they are assigned to.
+    '''
+    
+    def __init__(self, value=set(), bluff=set(), call=set(), noAction=set(), locked=set()):
+        
+        self.value = value
+        self.bluff = bluff
+        self.call = call
+        sefl.noAction = noAction
+        self.locked = locked
