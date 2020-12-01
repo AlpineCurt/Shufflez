@@ -91,6 +91,7 @@ class PlayerWindow(QtWidgets.QWidget):
         self.boardDisplay.sendBoardCards.connect(self.action_buckets.receiveBoard)
         self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsDisplay.rangeStatsMain.receiveCombos)
         self.rangeStatsDisplay.rangeStatsMain.sendComboActionsToRangeDisplay.connect(self.rangeDisplay.receiveActionList)
+        self.rangeStatsDisplay.rangeStatsMain.lockRangeMatrix.connect(self.rangeDisplay.receiveLockStatus)
 
 
 if __name__ == "__main__":

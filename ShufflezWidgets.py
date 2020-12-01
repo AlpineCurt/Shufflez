@@ -1,11 +1,6 @@
 '''
 Tools and UI Widgets for Shufflez Program.
 
-v3 9/25/2020
-Restructuring RangeMatrix as a QGridLayout of ComboRect Objects
-
-v4 10/2/2020
-Restructuring RangeMatrix as a custom grid of ComboRect Objects
 '''
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -27,22 +22,31 @@ class RangeDisplay(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         
-        layout = QtWidgets.QVBoxLayout()
+        #layout = QtWidgets.QVBoxLayout()
+        layout = QtWidgets.QGridLayout()
         
         spacing = 5
         
         self.rangeMatrix = RangeMatrix()
-        layout.addWidget(self.rangeMatrix, Qt.AlignTop)
+        layout.addWidget(self.rangeMatrix, 0, 0, 1, 2, Qt.AlignTop)
         
         self.rangeText = RangeText()
         self.rangeText.setFixedSize(self.rangeMatrix.matrixWidth, self.rangeText.boxHeight)
-        layout.addWidget(self.rangeText, Qt.AlignCenter)
+        layout.addWidget(self.rangeText, 1, 0, 1, 2, Qt.AlignCenter)
         
         self.clearButton = QtWidgets.QPushButton('Clear')
         self.clearButton.setFixedWidth(55)
         self.clearButton.setFixedHeight(25)
         self.clearButton.clicked.connect(self.onClearClick)
-        layout.addWidget(self.clearButton)
+        layout.addWidget(self.clearButton, 2, 0, 1, 1)
+        
+        lock = QtGui.QPixmap('lock.png')
+        self.lock = lock.scaled(20, 20, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        self.lock_icon = QtWidgets.QLabel(self)
+        self.lock_icon.setPixmap(self.lock)
+        self.lock_icon.hide()
+        self.lock_icon.setToolTip('Range cannot be changed after assigning combos to an action.')
+        layout.addWidget(self.lock_icon, 2, 1, 1, 1, Qt.AlignRight)
         
         layout.setSpacing(spacing)
         
@@ -66,14 +70,6 @@ class RangeDisplay(QtWidgets.QWidget):
         self.noAction = set()
         self.lockedCombos = set()
         
-        #self.value = []
-        #self.bluff = []
-        #self.call = []
-        #self.noAction = []
-        #self.valueLock = []
-        #self.bluffLock = []
-        #self.callLock = []
-        
         '''Connect Signals and Slots'''
         self.rangeMatrix.comboRectClicked.connect(self.setSelecting)
         self.rangeMatrix.mouseOver.connect(self.comboRectMouseMove)
@@ -91,6 +87,12 @@ class RangeDisplay(QtWidgets.QWidget):
         self.noAction = actionList[3]
         
         self.update()
+    
+    def receiveLockStatus(self, locked):
+        '''Slot to respond to RangeStatsMain's lockRangematrix signal.
+        Prevents the user from changing the range while assigning actions.'''
+        
+        self.rangeMatrix.locked = locked
     
     def setSelecting(self, comboRectName):
         
@@ -133,49 +135,21 @@ class RangeDisplay(QtWidgets.QWidget):
             self.bluff.discard(combo)
             self.call.discard(combo)
             self.noAction.discard(combo)
-            #for com in self.value:
-                #if combo.text == com.text:
-                    #self.value.remove(com)
-            #for com in self.bluff:
-                #if combo.text == com.text:
-                    #self.bluff.remove(com)
-            #for com in self.call:
-                #if combo.text == com.text:
-                    #self.call.remove(com)
-            #for com in self.noAction:
-                #if combo.text == com.text:
-                    #self.noAction.remove(com)
                 
             if self.action == 'value':   # Now place combo in correct Set
-                #self.value.append(combo)
                 self.value.add(combo)
             elif self.action == 'bluff':
-                #self.bluff.append(combo)
                 self.bluff.add(combo)
             elif self.action == 'call':
-                #self.call.append(combo)
                 self.call.add(combo)
             elif self.action == '':
-                #self.noAction.append(combo)
                 self.noAction.add(combo)
                 
         elif not self.selecting:
             self.value.discard(combo)
             self.bluff.discard(combo)
             self.call.discard(combo)
-            self.noAction.discard(combo)          
-            #for com in self.value:
-                #if combo.text == com.text:
-                    #self.value.remove(com)
-            #for com in self.bluff:
-                #if combo.text == com.text:
-                    #self.bluff.remove(com)
-            #for com in self.call:
-                #if combo.text == com.text:
-                    #self.call.remove(com)
-            #for com in self.noAction:
-                #if combo.text == com.text:
-                    #self.noAction.remove(com)
+            self.noAction.discard(combo)
     
     def onClearClick(self):
         '''Slot for Clear button clicked signal'''
@@ -195,13 +169,16 @@ class RangeDisplay(QtWidgets.QWidget):
         
         self.rangeText.clear()
         
+        self.rangeMatrix.locked = False
+        
         self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
         
         self.update()
         
     def setRangeFromText(self, range_list):
         '''Slot to respond to Enter pressed on RangeText.'''
-        
+        if self.rangeMatrix.locked:
+            return
         for combo in range_list:
             '''Remove combo if it's already in an action Set'''          
             self.value.discard(combo)
@@ -224,7 +201,8 @@ class RangeDisplay(QtWidgets.QWidget):
     
     def mouseReleaseEvent(self, e):
         self.selecting = False
-        self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
+        if not self.rangeMatrix.locked:
+            self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
         super().mouseReleaseEvent(e)
     
     def update(self):
@@ -255,6 +233,12 @@ class RangeDisplay(QtWidgets.QWidget):
             allActionCombos.extend(self.call)
             allActionCombos.extend(self.noAction)
             self.rangeText.setText(self.rangeText.rangeListToString(allActionCombos))
+        
+        '''Update Locked Icon'''
+        if self.rangeMatrix.locked:
+            self.lock_icon.show()
+        else:
+            self.lock_icon.hide()
         
         super().update()
     
@@ -318,6 +302,8 @@ class RangeMatrix(QtWidgets.QWidget):
         
         '''Tracks if user is clicking and dragging to select comboRects'''
         self.selecting = False
+        
+        self.locked = False
         
         '''QtWidget Settings'''
         self.setMinimumSize(boxLen * 13 + 1 + offset[0] * 2, boxLen * 13 + 1 + offset[1] * 2)
@@ -401,16 +387,15 @@ class RangeMatrix(QtWidgets.QWidget):
                     break
     
     def mousePressEvent(self, e):
-        
-        '''Determine which ComboRect was clicked and emit the name of it'''
-        for combo in self.matrix:
-            if combo.rect.contains(e.x(), e.y()):
-                self.comboRectClicked.emit(combo.name)
-                self.mouseOver.emit(combo.comboList)
-                break
+        if e.button() == Qt.LeftButton and not self.locked:
+            '''Determine which ComboRect was clicked and emit the name of it'''
+            for combo in self.matrix:
+                if combo.rect.contains(e.x(), e.y()):
+                    self.comboRectClicked.emit(combo.name)
+                    self.mouseOver.emit(combo.comboList)
+                    break
     
     def mouseMoveEvent(self, e):
-        
         '''Emit list of combos of moused over ComboRect'''
         for combo in self.matrix:
             if combo.rect.contains(e.x(), e.y()):
@@ -1016,6 +1001,7 @@ class RangeStatsMain(QtWidgets.QWidget):
     '''
     
     sendComboActionsToRangeDisplay = QtCore.pyqtSignal(list)
+    lockRangeMatrix = QtCore.pyqtSignal(bool)
     
     def __init__(self):
         super().__init__()
@@ -1059,6 +1045,26 @@ class RangeStatsMain(QtWidgets.QWidget):
     def receiveBoard(self, boardCards):
         '''Slot for BoardDisplay sendBoardCards signal'''
         self.board = boardCards
+        
+        '''Remove Blocked Combos'''
+        combos = ShCalc.removeBlockedCombos(self.combos, self.board)
+        value = ShCalc.removeBlockedCombos(self.value, self.board)
+        bluff = ShCalc.removeBlockedCombos(self.bluff, self.board)
+        call = ShCalc.removeBlockedCombos(self.call, self.board)
+        noAction = ShCalc.removeBlockedCombos(self.noAction, self.board)
+        
+        self.combos = set()
+        self.value = set()
+        self.bluff = set()
+        self.call = set()
+        self.noAction = set()
+        
+        self.combos.update(combos)
+        self.value.update(value)
+        self.bluff.update(bluff)
+        self.call.update(call)
+        self.noAction.update(noAction)
+        
         self.made_hands.calc_made_hands(self.combos, self.board)
         self.drawing_hands.calc_drawing_hands(self.combos, self.board)
         self.connectStatsRowSignals()
@@ -1069,15 +1075,35 @@ class RangeStatsMain(QtWidgets.QWidget):
     
     def receiveCombos(self, combos):
         '''Slot for RangeDisplay sendRangesToRangeStats signal'''
-        self.value = combos[0]
-        self.bluff = combos[1]
-        self.call = combos[2]
-        self.noAction = combos[3]
+        
+        if len(self.board) >= 3:
+            value = ShCalc.removeBlockedCombos(combos[0], self.board)
+            bluff = ShCalc.removeBlockedCombos(combos[1], self.board)
+            call = ShCalc.removeBlockedCombos(combos[2], self.board)
+            noAction = ShCalc.removeBlockedCombos(combos[3], self.board)
+            
+            self.combos = set()
+            self.value = set()
+            self.bluff = set()
+            self.call = set()
+            self.noAction = set()
+            
+            self.value.update(value)
+            self.bluff.update(bluff)
+            self.call.update(call)
+            self.noAction.update(noAction)            
+        else:
+            self.value = combos[0]
+            self.bluff = combos[1]
+            self.call = combos[2]
+            self.noAction = combos[3]            
         
         '''Combine value, bluff, call, noAction into single combo list.'''
         combined_combos = []
-        for combo_list in combos:
-            combined_combos.extend(combo_list)
+        combined_combos.extend(self.value)
+        combined_combos.extend(self.bluff)
+        combined_combos.extend(self.call)
+        combined_combos.extend(self.noAction)
         self.combos = combined_combos
         
         if len(self.combos) == 0:
@@ -1193,7 +1219,9 @@ class RangeStatsMain(QtWidgets.QWidget):
             if combo not in self.lockedCombos:
                 self.noAction.add(combo)
         
+        self.lockRangeMatrix.emit(True)
         self.sendComboActionsToRangeDisplay.emit([self.value, self.bluff, self.call, self.noAction])
+        
         self.update()
     
     def receiveLockedCombos(self, lockedCombos):
@@ -1265,6 +1293,7 @@ class RangeStatsMain(QtWidgets.QWidget):
                 row2.noAction.clear()
                 row2.lockedCombos.clear()
         
+        self.lockRangeMatrix.emit(False)
         self.sendComboActionsToRangeDisplay.emit([self.value, self.bluff, self.call, self.noAction])
         self.update()
     
