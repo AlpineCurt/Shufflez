@@ -13,21 +13,21 @@ from random import randint
 
 class RangeDisplay(QtWidgets.QWidget):
     '''
-    Contains RangeMatrix, RangeText, and clear button.
+    Contains RangeMatrix, RangeText, and clear button. position parameter is
+    the string name of the Window, i.e. "UTG" or "Button".
     '''
     
     sendRangesToActionBuckets = QtCore.pyqtSignal(list)  # Mouse over signal
     sendRangesToRangeStats = QtCore.pyqtSignal(list)   # Mouse release signal
     
-    def __init__(self):
+    def __init__(self, position):
         super().__init__()
         
-        #layout = QtWidgets.QVBoxLayout()
         layout = QtWidgets.QGridLayout()
         
         spacing = 5
         
-        self.rangeMatrix = RangeMatrix()
+        self.rangeMatrix = RangeMatrix(position)
         layout.addWidget(self.rangeMatrix, 0, 0, 1, 2, Qt.AlignTop)
         
         self.rangeText = RangeText()
@@ -256,7 +256,7 @@ class RangeMatrix(QtWidgets.QWidget):
     comboRectClicked = QtCore.pyqtSignal(str)
     mouseOver = QtCore.pyqtSignal(list)
     
-    def __init__(self):
+    def __init__(self, position):
         super().__init__()
         
         boxLen = 30        # Length in pixels of each grid square
@@ -265,6 +265,8 @@ class RangeMatrix(QtWidgets.QWidget):
         
         self.matrixHeight = boxLen * 13 + offset[1] * 2
         self.matrixWidth = boxLen * 13 + offset[0] * 2
+        
+        self.position = position   # Used when creating ComboRects
         
         '''Consruct Grid of ComboRects'''
         gridref = [['AA',   6], ['AKs',  4], ['AQs',  4], ['AJs',  4], ['ATs',  4], ['A9s',  4], ['A8s',  4], ['A7s',  4], ['A6s',  4], ['A5s',  4], ['A4s',  4], ['A3s',  4], ['A2s', 4], 
@@ -303,6 +305,7 @@ class RangeMatrix(QtWidgets.QWidget):
         '''Tracks if user is clicking and dragging to select comboRects'''
         self.selecting = False
         
+        '''Allows the user to select combos by clicking'''
         self.locked = False
         
         '''QtWidget Settings'''
@@ -323,7 +326,8 @@ class RangeMatrix(QtWidgets.QWidget):
         for combo in gridref:
             rect = ComboRect(boxLen * col + offset[0],
                              boxLen * row + offset[1],
-                             boxLen, boxLen, combo[1], combo[0])
+                             boxLen, boxLen, combo[1], combo[0],
+                             self.position)
             matrix.append(rect)
             col += 1
             if col % 13 == 0:
@@ -394,6 +398,10 @@ class RangeMatrix(QtWidgets.QWidget):
                     self.comboRectClicked.emit(combo.name)
                     self.mouseOver.emit(combo.comboList)
                     break
+        elif e.button() == Qt.RightButton:
+            for combo in self.matrix:
+                if combo.rect.contains(e.x(), e.y()):
+                    combo.comboWindow.show()
     
     def mouseMoveEvent(self, e):
         '''Emit list of combos of moused over ComboRect'''
@@ -513,7 +521,7 @@ class ComboRect(QtWidgets.QWidget):
     Used by RangeMatrix.
     '''
     
-    def __init__(self, x, y, width, height, totalCombos, name):
+    def __init__(self, x, y, width, height, totalCombos, name, position):
         super().__init__()
         
         '''Rect for drawing in paintEvent'''
@@ -523,6 +531,7 @@ class ComboRect(QtWidgets.QWidget):
         '''Attributes'''
         self.totalCombos = totalCombos
         self.name = name
+        self.position = position    # Used when creating ComboWindows
         
         rank_value = ["2", "3", "4", "5", "6", "7", "8",
                       "9", "T", "J", "Q", "K", "A"]
@@ -544,6 +553,9 @@ class ComboRect(QtWidgets.QWidget):
         self.call = set()
         self.noAction = set()
         self.lockedCombos = set()
+        
+        '''Create Hidden ComboWindow'''
+        self.comboWindow = ComboWindow(self.position, self.name)
     
     def buildCombos(self):
         '''
@@ -2567,8 +2579,8 @@ class BoardCard(QtWidgets.QWidget):
         scaled_height = round(scale * 117, 0)
         size = QtCore.QSize(scaled_width, scaled_height)
         
-        card = QtGui.QPixmap('cards_sheet.gif')
-        card1 = card.copy(card_col - 1, card_row - 1, 81 + 1, 117 + 1)
+        card = QtGui.QPixmap('cards_sheet_four_colors.png')
+        card1 = card.copy(card_col + column, card_row + row, 81, 117)
         
         return card1.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
     
@@ -2764,10 +2776,64 @@ class BoardSelection(QtWidgets.QDialog):
 
 class ComboWindow(QtWidgets.QWidget):
     '''Window that lists individual combos and allows the user to
-    assign an action to each.'''
+    assign an action to each.  player_text displayed at the top of the
+    window and is typically the position.  origin is the name of combo
+    range, i.e. "AKo" or "Top Pair TK" '''
     
-    def __init__(self):
-        pass
+    def __init__(self, player_text, origin):
+        super().__init__()
+        
+        layout = QtWidgets.QGridLayout()
+        
+        '''Position and Origin Lables, and their formatting'''
+        self.position = QtWidgets.QLabel(player_text, self)
+        layout.addWidget(self.position, 0, 0)
+        self.origin = QtWidgets.QLabel(origin, self)
+        layout.addWidget(self.origin, 0, 1)
+        
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPixelSize(16)
+        self.position.setFont(font)
+        self.origin.setFont(font)
+        
+        '''Scroll area for combo listing'''
+        self.comboDisplayArea = QtWidgets.QScrollArea()
+        self.comboDisplayArea.setMinimumSize(300, 300)
+        self.comboDisplayArea.setLayout(QtWidgets.QVBoxLayout())
+        layout.addWidget(self.comboDisplayArea, 1, 0, 1, 5)
+        self.setLayout(layout)
+        
+        '''Attributes'''
+        self.value = set()
+        self.bluff = set()
+        self.call = set()
+        self.noAction = set()
+        
+        '''Test ComboRow'''
+        self.test_combo = Combo([12, 3], [11, 3])
+        self.test_ComboRow = ComboRow(self.test_combo)
+        self.comboDisplayArea.layout().addWidget(self.test_ComboRow)
+
+
+class ComboRow(QtWidgets.QWidget):
+    '''Displays One Combo and its actionRects'''
+    
+    def __init__(self, combo):
+        super().__init__()
+        
+        self.combo = combo
+        
+        self.scale = .4  ### Size of Cards changed here ###
+        
+        self.cardA = BoardCard(self.scale)
+        self.cardA.revealedCard = self.cardA.getCard(self.combo.cardA[0], self.combo.cardA[1], self.scale)
+        self.cardA.move(0, 0)
+        self.cardA.setParent(self)
+        self.cardB = BoardCard(self.scale)
+        self.cardB.revealedCard = self.cardB.getCard(self.combo.cardB[0], self.combo.cardB[1], self.scale)
+        self.cardB.move(30, 0)
+        self.cardB.setParent(self)
 
 
 """Data Storage and Range Info Transfer Objects"""
@@ -2801,6 +2867,23 @@ class Combo():
             return True
         else:
             return False
+    
+    def getCard(self, column, row, scale):
+        '''
+        Returns a scaled pixmap of the correct card to display
+        '''
+        
+        card_col = 81 * column
+        card_row = 117 * row        
+        
+        scaled_width = round(scale * 81, 0)
+        scaled_height = round(scale * 117, 0)
+        size = QtCore.QSize(scaled_width, scaled_height)
+        
+        card = QtGui.QPixmap('cards_sheet.gif')
+        card1 = card.copy(card_col - 1, card_row - 1, 81 + 1, 117 + 1)
+        
+        return card1.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)    
     
     def getComboRect(self):
         '''
@@ -2874,17 +2957,3 @@ class Combo():
                    'A2o', 'K2o', 'Q2o', 'J2o', 'T2o', '92o', '82o', '72o', '62o', '52o', '42o', '32o', '22']
         
         return gridref.index(self.comboRect)
-
-
-class ActionList():
-    '''
-    Used to send Sets of combos for each action they are assigned to.
-    '''
-    
-    def __init__(self, value=set(), bluff=set(), call=set(), noAction=set(), locked=set()):
-        
-        self.value = value
-        self.bluff = bluff
-        self.call = call
-        sefl.noAction = noAction
-        self.locked = locked
