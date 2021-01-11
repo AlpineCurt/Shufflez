@@ -355,6 +355,11 @@ class RangeMatrix(QtWidgets.QWidget):
             for rect in self.matrix:
                 if combo.comboRect == rect.name:
                     rect.value.add(combo)
+                    for comboRow in rect.comboWindow.comboRows:
+                        if comboRow.combo == combo:
+                            comboRow.inRange = True
+                            comboRow.action = 'v'
+                            break
                     break
     
     def setBluff(self, bluffCombos):
@@ -366,6 +371,11 @@ class RangeMatrix(QtWidgets.QWidget):
             for rect in self.matrix:
                 if combo.comboRect == rect.name:
                     rect.bluff.add(combo)
+                    for comboRow in rect.comboWindow.comboRows:
+                        if comboRow.combo == combo:
+                            comboRow.inRange = True
+                            comboRow.action = 'b'
+                            break                    
                     break
     
     def setCall(self, callCombos):
@@ -377,6 +387,11 @@ class RangeMatrix(QtWidgets.QWidget):
             for rect in self.matrix:
                 if combo.comboRect == rect.name:
                     rect.call.add(combo)
+                    for comboRow in rect.comboWindow.comboRows:
+                        if comboRow.combo == combo:
+                            comboRow.inRange = True
+                            comboRow.action = 'c'
+                            break
                     break
     
     def setNoAction(self, noActionCombos):
@@ -388,23 +403,29 @@ class RangeMatrix(QtWidgets.QWidget):
             for rect in self.matrix:
                 if combo.comboRect == rect.name:
                     rect.noAction.add(combo)
+                    for comboRow in rect.comboWindow.comboRows:
+                        if comboRow.combo == combo:
+                            comboRow.inRange = True
+                            break
                     break
     
     def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton and not self.locked:
+        if e.buttons() == Qt.LeftButton and not self.locked:
             '''Determine which ComboRect was clicked and emit the name of it'''
             for combo in self.matrix:
                 if combo.rect.contains(e.x(), e.y()):
                     self.comboRectClicked.emit(combo.name)
                     self.mouseOver.emit(combo.comboList)
                     break
-        elif e.button() == Qt.RightButton:
+        elif e.buttons() == Qt.RightButton:
             for combo in self.matrix:
                 if combo.rect.contains(e.x(), e.y()):
                     combo.comboWindow.show()
     
     def mouseMoveEvent(self, e):
         '''Emit list of combos of moused over ComboRect'''
+        if e.buttons() == Qt.RightButton:
+            return
         for combo in self.matrix:
             if combo.rect.contains(e.x(), e.y()):
                 self.mouseOver.emit(combo.comboList)
@@ -555,7 +576,7 @@ class ComboRect(QtWidgets.QWidget):
         self.lockedCombos = set()
         
         '''Create Hidden ComboWindow'''
-        self.comboWindow = ComboWindow(self.position, self.name)
+        self.comboWindow = ComboWindow(self.position, self.name, self.comboList)
     
     def buildCombos(self):
         '''
@@ -1127,6 +1148,8 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.connectStatsRowSignals()
         self.made_hands.update()
         self.drawing_hands.update()
+        
+        self.sendComboActionsToRangeDisplay.emit([self.value, self.bluff, self.call, self.noAction])
         
         self.update()
     
@@ -2780,7 +2803,7 @@ class ComboWindow(QtWidgets.QWidget):
     window and is typically the position.  origin is the name of combo
     range, i.e. "AKo" or "Top Pair TK" '''
     
-    def __init__(self, player_text, origin):
+    def __init__(self, player_text, origin, comboList=set()):
         super().__init__()
         
         layout = QtWidgets.QGridLayout()
@@ -2799,8 +2822,9 @@ class ComboWindow(QtWidgets.QWidget):
         
         '''Scroll area for combo listing'''
         self.comboDisplayArea = QtWidgets.QScrollArea()
-        self.comboDisplayArea.setMinimumSize(300, 300)
-        self.comboDisplayArea.setLayout(QtWidgets.QVBoxLayout())
+        self.comboDisplayArea.setMinimumSize(225, 150)
+        self.comboDisplayList = QtWidgets.QWidget()
+        self.comboDisplayArea.setWidget(self.comboDisplayList)
         layout.addWidget(self.comboDisplayArea, 1, 0, 1, 5)
         self.setLayout(layout)
         
@@ -2810,31 +2834,218 @@ class ComboWindow(QtWidgets.QWidget):
         self.call = set()
         self.noAction = set()
         
-        '''Test ComboRow'''
-        self.test_combo = Combo([12, 3], [11, 3])
-        self.test_ComboRow = ComboRow(self.test_combo)
-        self.comboDisplayArea.layout().addWidget(self.test_ComboRow)
-
+        self.comboList = comboList
+        self.comboRows = []
+        
+        '''Construct ComboRows'''
+        self.buildComboRows(self.comboList)
+        
+    def buildComboRows(self, comboList):
+        '''Used during init to construct and position a ComboRow object
+        within comboDisplayArea for each combo in comboList'''
+        
+        for combo in comboList:
+            self.comboRows.append(ComboRow(combo))
+        
+        rowHeight = self.comboRows[0].rowHeight
+        spacing = 3  # gap between each comboRow
+        
+        x = 2
+        y = 2
+        
+        for combo in self.comboRows:
+            combo.setParent(self.comboDisplayList)
+            combo.move(x, y)
+            y += rowHeight + spacing
+        
+        self.comboDisplayList.setMinimumSize(155, len(self.comboRows) * rowHeight + len(self.comboRows) * spacing)
+        
+        if len(self.comboRows) * rowHeight + len(self.comboRows) * spacing > 400:
+            self.comboDisplayArea.setMinimumSize(180, 400)
+        else:
+            self.comboDisplayArea.setMinimumSize(180, len(self.comboRows) * rowHeight + len(self.comboRows) * spacing + 5)
+        
 
 class ComboRow(QtWidgets.QWidget):
-    '''Displays One Combo and its actionRects'''
+    '''Displays One Combo and its actionRects.  Displayed within ComboWindow.
+    Used by ComboRect and StatsRow.'''
     
     def __init__(self, combo):
         super().__init__()
         
         self.combo = combo
         
-        self.scale = .4  ### Size of Cards changed here ###
+        width, height = 200, 25  ### Change width and height of each row here ###
+        rectScale = .75  # Percent of height that will be actionRact width
+        cardScale = .9  # Percent of height that will be card text size
+        cardW, cardH = height * cardScale, height * cardScale
+        buffer = 2 # Border buffer
+        rectW = height * rectScale # ActionRect size
+        label_rect_gap = 15  # Space between cards and first actionRect
+        rectSpacing = 5 # gap between ActionRects
         
-        self.cardA = BoardCard(self.scale)
-        self.cardA.revealedCard = self.cardA.getCard(self.combo.cardA[0], self.combo.cardA[1], self.scale)
-        self.cardA.move(0, 0)
-        self.cardA.setParent(self)
-        self.cardB = BoardCard(self.scale)
-        self.cardB.revealedCard = self.cardB.getCard(self.combo.cardB[0], self.combo.cardB[1], self.scale)
-        self.cardB.move(30, 0)
-        self.cardB.setParent(self)
-
+        self.rowHeight = height
+        
+        '''QRects for displaying the two combo cards'''
+        self.cardArect = QtCore.QRect(buffer, (rectW - cardH) / 2 + buffer, cardW, cardH)
+        self.cardBrect = QtCore.QRect(cardW + buffer, (rectW - cardH) / 2 + buffer, cardW, cardH)
+        
+        '''Create ActionRects'''
+        self.lockRect = QtCore.QRect(cardW * 2 + label_rect_gap, buffer, rectW, rectW)
+        self.valueRect = QtCore.QRect(cardW * 2 + label_rect_gap + rectSpacing + rectW, buffer, rectW, rectW)
+        self.bluffRect = QtCore.QRect(cardW * 2 + label_rect_gap + rectSpacing * 2 + rectW * 2, buffer, rectW, rectW)
+        self.callRect = QtCore.QRect(cardW * 2 + label_rect_gap + rectSpacing * 3 + rectW * 3, buffer, rectW, rectW)
+        
+        '''RGB values for display'''
+        self.valueBrush = [255, 77, 77]
+        self.bluffBrush = [255, 166, 166]
+        self.callBrush = [103, 178, 45]
+        
+        '''Action Rect Lock Icon'''
+        lock = QtGui.QPixmap('lock.png')
+        self.lock = lock.scaled(height * rectScale, height * rectScale, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        unlock = QtGui.QPixmap('unlock.png')
+        self.unlock = unlock.scaled(height * rectScale, height * rectScale, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)        
+        
+        self.locked = False
+        self.inRange = True
+        self.action = ''
+    
+    def setLock(self):
+        self.locked = not self.locked
+        '''Will need to emit a signal here'''
+    
+    def setValue(self):
+        '''When Value actionRect is clicked'''
+        if self.locked:
+            return
+        if self.action == 'v':
+            self.action = ''
+        else:
+            self.action = 'v'
+    
+    def setBluff(self):
+        '''When Bluff actionRect is clicked'''
+        if self.locked:
+            return        
+        if self.action == 'b':
+            self.action = ''
+        else:
+            self.action = 'b'
+    
+    def setCall(self):
+        '''When Call actionRect is clicked'''
+        if self.locked:
+            return        
+        if self.action == 'c':
+            self.action = ''
+        else:
+            self.action = 'c'    
+    
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            if self.valueRect.contains(e.x(), e.y()):
+                self.setValue()
+            elif self.bluffRect.contains(e.x(), e.y()):
+                self.setBluff()
+            elif self.callRect.contains(e.x(), e.y()):
+                self.setCall()
+            elif self.lockRect.contains(e.x(), e.y()):
+                self.setLock()
+            
+            self.update()
+    
+    def paintEvent(self, e):
+        
+        painter = QtGui.QPainter(self)
+        textWidth = 5
+        
+        font = QtGui.QFont()
+        font.setPixelSize(17)
+        font.setBold(True)
+        painter.setFont(font)
+        
+        green = QtGui.QColor(0, 127, 0)
+        grey = QtGui.QColor(175, 175, 175)
+        
+        hearts = QtGui.QPen(Qt.red, textWidth, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        diamonds = QtGui.QPen(Qt.blue, textWidth, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        clubs = QtGui.QPen(green, textWidth, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        spades = QtGui.QPen(Qt.black, textWidth, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        notInRange = QtGui.QPen(grey, textWidth, Qt.SolidLine, Qt.SquareCap, Qt.BevelJoin)
+        
+        value = QtGui.QBrush()
+        value.setColor(QtGui.QColor(self.valueBrush[0], self.valueBrush[1], self.valueBrush[2]))
+        value.setStyle(Qt.SolidPattern)
+        
+        bluff = QtGui.QBrush()
+        bluff.setColor(QtGui.QColor(self.bluffBrush[0], self.bluffBrush[1], self.bluffBrush[2]))
+        bluff.setStyle(Qt.SolidPattern)
+        
+        call = QtGui.QBrush()
+        call.setColor(QtGui.QColor(self.callBrush[0], self.callBrush[1], self.callBrush[2]))
+        call.setStyle(Qt.SolidPattern)
+        
+        '''Draw Cards'''
+        if self.inRange:
+            '''Draw First Card'''
+            if self.combo.text[1] == 'h':
+                painter.setPen(hearts)
+            elif self.combo.text[1] == 'd':
+                painter.setPen(diamonds)
+            elif self.combo.text[1] == 'c':
+                painter.setPen(clubs)
+            elif self.combo.text[1] == 's':
+                painter.setPen(spades)
+            
+            painter.drawText(self.cardArect, Qt.AlignCenter, self.combo.text[:2])
+            
+            '''Draw Second Card'''
+            if self.combo.text[3] == 'h':
+                painter.setPen(hearts)
+            elif self.combo.text[3] == 'd':
+                painter.setPen(diamonds)
+            elif self.combo.text[3] == 'c':
+                painter.setPen(clubs)
+            elif self.combo.text[3] == 's':
+                painter.setPen(spades)        
+            painter.drawText(self.cardBrect, Qt.AlignCenter, self.combo.text[2:])
+        else:
+            painter.setPen(notInRange)
+            painter.drawText(self.cardArect, Qt.AlignCenter, self.combo.text[:2])
+            painter.drawText(self.cardBrect, Qt.AlignCenter, self.combo.text[2:])
+        
+        '''Draw Lock Icon'''
+        if self.inRange:
+            if self.locked:
+                painter.drawPixmap(self.lockRect, self.lock)
+            else:
+                painter.setOpacity(.5)
+                painter.drawPixmap(self.lockRect, self.unlock)
+                painter.setOpacity(1.0)
+        
+        '''Draw ActionRects'''
+        if self.inRange:
+            if self.action == 'v':
+                painter.fillRect(self.valueRect, value)
+            elif self.action == 'b':
+                painter.fillRect(self.bluffRect, bluff)
+            elif self.action == 'c':
+                painter.fillRect(self.callRect, call)
+            
+            painter.setPen(Qt.black)
+            font.setBold(False)
+            font.setPixelSize(10)
+            painter.setFont(font)
+            
+            painter.drawRect(self.valueRect)
+            painter.drawRect(self.bluffRect)
+            painter.drawRect(self.callRect)
+            
+            painter.drawText(self.valueRect, Qt.AlignCenter, 'V')
+            painter.drawText(self.bluffRect, Qt.AlignCenter, 'B')
+            painter.drawText(self.callRect, Qt.AlignCenter, 'C')
+        
 
 """Data Storage and Range Info Transfer Objects"""
 
@@ -2868,22 +3079,43 @@ class Combo():
         else:
             return False
     
-    def getCard(self, column, row, scale):
+    def getCards(self, scale = 1):
         '''
-        Returns a scaled pixmap of the correct card to display
+        Returns a list of a scaled pixmap for each card
         '''
-        
-        card_col = 81 * column
-        card_row = 117 * row        
         
         scaled_width = round(scale * 81, 0)
         scaled_height = round(scale * 117, 0)
         size = QtCore.QSize(scaled_width, scaled_height)
+        cards = QtGui.QPixmap('cards_sheet_four_colors.png')
         
-        card = QtGui.QPixmap('cards_sheet.gif')
-        card1 = card.copy(card_col - 1, card_row - 1, 81 + 1, 117 + 1)
+        '''CardA'''
+        card_col = 81 * self.cardA[0]
+        card_row = 117 * self.cardA[1]
+        card = cards.copy(card_col + self.cardA[0], card_row + self.cardA[1], 81, 117)
+        cardA = card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        '''CardB'''
+        card_col = 81 * self.cardB[0]
+        card_row = 117 * self.cardB[1]
+        card = cards.copy(card_col + self.cardB[0], card_row + self.cardB[1], 81, 117)
+        cardB = card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
-        return card1.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)    
+        return (cardA, cardB)
+    
+    def getCardA(self, scale = 1):
+        '''Returns a scaled QPixmap of CardA'''
+        
+        scaled_width = round(scale * 81, 0)
+        scaled_height = round(scale * 117, 0)
+        size = QtCore.QSize(scaled_width, scaled_height)
+        cards = QtGui.QPixmap('cards_sheet_four_colors.png')
+        
+        card_col = 81 * self.cardA[0]
+        card_row = 117 * self.cardA[1]
+        card = cards.copy(card_col + self.cardA[0], card_row + self.cardA[1], 81, 117)
+        
+        return card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)  
     
     def getComboRect(self):
         '''
