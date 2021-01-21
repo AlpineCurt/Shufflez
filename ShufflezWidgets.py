@@ -209,6 +209,7 @@ class RangeDisplay(QtWidgets.QWidget):
         
         '''Update RangeMatrix'''
         self.rangeMatrix.clearGrid()
+        self.rangeMatrix.resetComboWindows()
         self.rangeMatrix.setValue(self.value)
         self.rangeMatrix.setBluff(self.bluff)
         self.rangeMatrix.setCall(self.call)
@@ -345,6 +346,12 @@ class RangeMatrix(QtWidgets.QWidget):
             combo.call.clear()
             combo.noAction.clear()
         self.update()
+        
+    def resetComboWindows(self):
+        '''Sets all ComboRows' inRange to False'''
+        
+        for comboRect in self.matrix:
+            comboRect.resetComboWindow()
     
     def setValue(self, valueCombos):
         '''
@@ -421,6 +428,7 @@ class RangeMatrix(QtWidgets.QWidget):
             for combo in self.matrix:
                 if combo.rect.contains(e.x(), e.y()):
                     combo.comboWindow.show()
+                    combo.comboWindow.activateWindow()
     
     def mouseMoveEvent(self, e):
         '''Emit list of combos of moused over ComboRect'''
@@ -606,6 +614,12 @@ class ComboRect(QtWidgets.QWidget):
                 combos.append(Combo([self.rankA, i[0]], [self.rankB, i[1]]))
         
         return combos
+    
+    def resetComboWindow(self):
+        '''Sets all CombowRows inRange to False'''
+        
+        for row in self.comboWindow.comboRows:
+            row.inRange = False
     
 
 class RangeText(QtWidgets.QTextEdit):
