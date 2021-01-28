@@ -44,7 +44,7 @@ class MainLayout(QtWidgets.QWidget):
         self.setLayout(layout)
         
     def onTestWindowClick(self):
-        self.testPlayerWindow = PlayerWindow()
+        self.testPlayerWindow = PlayerWindow('UTG')
         self.testPlayerWindow.show()
 
 
@@ -66,11 +66,11 @@ class PlayerWindow(QtWidgets.QWidget):
         layout.addWidget(self.action_buckets, 0, 0, Qt.AlignTop)
         
         '''Create RangeDisplay'''
-        self.rangeDisplay = ShufflezWidgets.RangeDisplay()
+        self.rangeDisplay = ShufflezWidgets.RangeDisplay(self.position)
         layout.addWidget(self.rangeDisplay, 1, 0, Qt.AlignCenter)
         
         '''Create RangeStatsDisplay'''
-        self.rangeStatsDisplay = ShufflezWidgets.RangeStatsDisplay()
+        self.rangeStatsDisplay = ShufflezWidgets.RangeStatsDisplay(self.position)
         self.rangeStatsDisplay.setMinimumSize(335, self.rangeDisplay.totalHeight)
         self.rangeStatsDisplay.scrollArea.setFixedSize(330, self.rangeDisplay.totalHeight - 25)
         layout.addWidget(self.rangeStatsDisplay, 1, 1, Qt.AlignTop)
@@ -92,7 +92,9 @@ class PlayerWindow(QtWidgets.QWidget):
         self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsDisplay.rangeStatsMain.receiveCombos)
         self.rangeStatsDisplay.rangeStatsMain.sendComboActionsToRangeDisplay.connect(self.rangeDisplay.receiveActionList)
         self.rangeStatsDisplay.rangeStatsMain.lockRangeMatrix.connect(self.rangeDisplay.receiveLockStatus)
-
+        self.rangeStatsDisplay.rangeStatsMain.sendLockedToRangeDisplay.connect(self.rangeDisplay.receiveLockedCombos)
+        self.boardDisplay.sendPreflopStatus.connect(self.rangeDisplay.receivePreflopStatus)
+        self.rangeDisplay.sendLockedCombosToRangeStatsMain.connect(self.rangeStatsDisplay.rangeStatsMain.receiveLockedCombosFromRangeDisplay)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

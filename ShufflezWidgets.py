@@ -19,6 +19,7 @@ class RangeDisplay(QtWidgets.QWidget):
     
     sendRangesToActionBuckets = QtCore.pyqtSignal(list)  # Mouse over signal
     sendRangesToRangeStats = QtCore.pyqtSignal(list)   # Mouse release signal
+    sendLockedCombosToRangeStatsMain = QtCore.pyqtSignal(set)
     
     def __init__(self, position):
         super().__init__()
@@ -61,6 +62,7 @@ class RangeDisplay(QtWidgets.QWidget):
         
         '''Attributes'''
         self.selecting = False
+        self.preflop = True
         
         self.action = ''
         
@@ -74,6 +76,10 @@ class RangeDisplay(QtWidgets.QWidget):
         self.rangeMatrix.comboRectClicked.connect(self.setSelecting)
         self.rangeMatrix.mouseOver.connect(self.comboRectMouseMove)
         self.rangeText.enterPressed.connect(self.setRangeFromText)
+        
+        for comRect in self.rangeMatrix.matrix:
+            comRect.comboWindow.sendLockedCombos.connect(self.receiveLockedCombosFromComboWindow)
+            comRect.comboWindow.sendUnlockedCombos.connect(self.receiveUnlockedCombosFromComboWindow)
     
     def receiveActionList(self, actionList):
         '''Slot to respond when RangeStatsMain sends a list of combos
@@ -88,11 +94,38 @@ class RangeDisplay(QtWidgets.QWidget):
         
         self.update()
     
+    def receiveLockedCombos(self, lockedCombos):
+        '''Slot to respond when RangeStatsMain sends a list of locked Combos.'''
+        self.lockedCombos = lockedCombos
+        
+        self.update()
+    
+    def receiveLockedCombosFromComboWindow(self, lockedCombos):
+        '''Slot to respond when a child ComboWindow emits a set of locked combos'''
+        self.lockedCombos = self.lockedCombos.union(lockedCombos)
+        self.sendLockedCombosToRangeStatsMain.emit(self.lockedCombos)
+        
+        self.update()
+    
+    def receiveUnlockedCombosFromComboWindow(self, unlockedCombos):
+        '''Slot to respond when a child ComboWindow emits a set of unlocked combos'''
+        self.lockedCombos = self.lockedCombos.difference(unlockedCombos)
+        self.sendLockedCombosToRangeStatsMain.emit(self.lockedCombos)
+        
+        self.update()
+    
     def receiveLockStatus(self, locked):
         '''Slot to respond to RangeStatsMain's lockRangematrix signal.
         Prevents the user from changing the range while assigning actions.'''
         
         self.rangeMatrix.locked = locked
+    
+    def receivePreflopStatus(self, preflop):
+        '''Slot to respond to BoardDisplay's sendPreflopStatus signal.'''
+        
+        self.preflop = preflop
+        
+        self.update()
     
     def setSelecting(self, comboRectName):
         
@@ -209,11 +242,15 @@ class RangeDisplay(QtWidgets.QWidget):
         
         '''Update RangeMatrix'''
         self.rangeMatrix.clearGrid()
-        self.rangeMatrix.resetComboWindows()
+        if not self.preflop:
+            self.rangeMatrix.resetComboWindows()
+        else:
+            self.rangeMatrix.setAllRectInRange()
         self.rangeMatrix.setValue(self.value)
         self.rangeMatrix.setBluff(self.bluff)
         self.rangeMatrix.setCall(self.call)
         self.rangeMatrix.setNoAction(self.noAction)
+        self.rangeMatrix.setLockedCombos(self.lockedCombos)
         self.rangeMatrix.update()
         
         '''Update ActionBuckets'''
@@ -353,6 +390,12 @@ class RangeMatrix(QtWidgets.QWidget):
         for comboRect in self.matrix:
             comboRect.resetComboWindow()
     
+    def setAllRectInRange(self):
+        '''Sets all ComboRows' inRange to True'''
+        
+        for comboRect in self.matrix:
+            comboRect.setAllInRange()
+    
     def setValue(self, valueCombos):
         '''
         Places each combo into the correct ComboRect's value Set.
@@ -413,6 +456,26 @@ class RangeMatrix(QtWidgets.QWidget):
                     for comboRow in rect.comboWindow.comboRows:
                         if comboRow.combo == combo:
                             comboRow.inRange = True
+                            break
+                    break
+    
+    def setLockedCombos(self, lockedCombos):
+        '''
+        Finds ComboRow for each combo in lockedCombos and sets it to locked.
+        '''
+        
+        '''Set all to unlocked.'''
+        for combo in self.matrix:
+            for row in combo.comboWindow.comboRows:
+                row.locked = False
+        
+        '''Find and set locked status for each combo from lockedCombos'''
+        for combo in lockedCombos:
+            for rect in self.matrix:
+                if combo in rect.comboList:
+                    for row in rect.comboWindow.comboRows:
+                        if row.combo == combo:
+                            row.locked = True
                             break
                     break
     
@@ -620,6 +683,12 @@ class ComboRect(QtWidgets.QWidget):
         
         for row in self.comboWindow.comboRows:
             row.inRange = False
+    
+    def setAllInRange(self):
+        '''Sets all ComboRows inRange to True'''
+        
+        for row in self.comboWindow.comboRows:
+            row.inRange = True
     
 
 class RangeText(QtWidgets.QTextEdit):
@@ -1019,12 +1088,12 @@ class RangeStatsDisplay(QtWidgets.QWidget):
     post flop made hand percentages.
     '''
     
-    def __init__(self):
+    def __init__(self, position):
         super().__init__()
         
         layout = QtWidgets.QGridLayout()
         
-        self.rangeStatsMain = RangeStatsMain()
+        self.rangeStatsMain = RangeStatsMain(position)
         
         self.scrollArea = QtWidgets.QScrollArea()
         self.scrollArea.setWidget(self.rangeStatsMain)
@@ -1049,10 +1118,12 @@ class RangeStatsMain(QtWidgets.QWidget):
     
     sendComboActionsToRangeDisplay = QtCore.pyqtSignal(list)
     lockRangeMatrix = QtCore.pyqtSignal(bool)
+    sendLockedToRangeDisplay = QtCore.pyqtSignal(set)
     
-    def __init__(self):
+    def __init__(self, position):
         super().__init__()
         
+        self.position = position
         self.combos = set()
         self.value = set()
         self.bluff = set()
@@ -1061,10 +1132,10 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.lockedCombos = set()
         self.board = []
         
-        self.made_hands = RangeStats()
+        self.made_hands = RangeStats(self.position)
         self.made_hands.setParent(self)
         
-        self.drawing_hands = RangeStats()
+        self.drawing_hands = RangeStats(self.position)
         self.drawing_hands.setParent(self)
         
     def connectStatsRowSignals(self):
@@ -1286,6 +1357,7 @@ class RangeStatsMain(QtWidgets.QWidget):
             row.lockedCombos = self.lockedCombos.copy()
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+        self.sendLockedToRangeDisplay.emit(self.lockedCombos)
         self.update()
         
     def receiveUnlockedCombos(self, unlockedCombos):
@@ -1293,6 +1365,21 @@ class RangeStatsMain(QtWidgets.QWidget):
         Slot for signal from StatsRow that sends a Set of combos to be unlocked.
         '''
         self.lockedCombos = self.lockedCombos.difference(unlockedCombos)
+        for row in self.made_hands.allRows:
+            row.lockedCombos = self.lockedCombos.copy()
+            for row2 in row.secondary_StatsRows:
+                row2.lockedCombos = self.lockedCombos.copy()
+        for row in self.drawing_hands.allRows:
+            row.lockedCombos = self.lockedCombos.copy()
+            for row2 in row.secondary_StatsRows:
+                row2.lockedCombos = self.lockedCombos.copy()
+        self.sendLockedToRangeDisplay.emit(self.lockedCombos)
+        self.update()
+    
+    def receiveLockedCombosFromRangeDisplay(self, lockedCombos):
+        '''Slot to respond when RangeDisplay sends a Set of locked combos'''
+        
+        self.lockedCombos = lockedCombos
         for row in self.made_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
             for row2 in row.secondary_StatsRows:
@@ -1380,10 +1467,12 @@ class RangeStats(QtWidgets.QWidget):
     Intended to be a child widget of RangeStatsMain
     '''
     
-    def __init__(self):
+    def __init__(self, position):
         super().__init__()
         
         self.allRows = []
+        
+        self.position = position
         
         self.combos = set()
         self.board = []
@@ -1698,25 +1787,25 @@ class RangeStats(QtWidgets.QWidget):
         '''Construct a list of StatsRow objects for each dict of made hands'''
         flush_total_combos = len(made_hands['Flush'])
         if flush_total_combos > 0:
-            flush_stats = RangeStats.dictToStatsRows(flush, total_combos)
+            flush_stats = RangeStats.dictToStatsRows(flush, total_combos, self.position)
             made_hands['Flush'].append(flush_stats)
         
         straight_total_combos = len(made_hands['Straight'])
         if straight_total_combos > 0:
-            straight_stats = RangeStats.dictToStatsRows(straight, total_combos)
+            straight_stats = RangeStats.dictToStatsRows(straight, total_combos, self.position)
             made_hands['Straight'].append(straight_stats)
         
         three_of_a_kind_total_combos = len(made_hands['Three of a Kind'])
         if three_of_a_kind_total_combos > 0:
-            three_of_a_kind_stats = RangeStats.dictToStatsRows(three_of_a_kind, total_combos)
+            three_of_a_kind_stats = RangeStats.dictToStatsRows(three_of_a_kind, total_combos, self.position)
             made_hands['Three of a Kind'].append(three_of_a_kind_stats)
         
         top_pair_total_combos = len(made_hands['Top Pair'])
         if top_pair_total_combos > 0:
-            top_pair_stats = RangeStats.dictToStatsRows(top_pair, total_combos)
+            top_pair_stats = RangeStats.dictToStatsRows(top_pair, total_combos, self.position)
             made_hands['Top Pair'].append(top_pair_stats)
         
-        finalStats = RangeStats.dictToStatsRows(made_hands, total_combos)
+        finalStats = RangeStats.dictToStatsRows(made_hands, total_combos, self.position)
          
         return finalStats
     
@@ -1805,30 +1894,30 @@ class RangeStats(QtWidgets.QWidget):
         '''Construct a list of StatsRow objects for each dict of made hands'''
         flush_draw_total_combos = len(drawing_hands['Flush Draw'])
         if flush_draw_total_combos > 0:
-            flush_draw_stats = RangeStats.dictToStatsRows(flush_draw, total_combos)
+            flush_draw_stats = RangeStats.dictToStatsRows(flush_draw, total_combos, self.position)
             drawing_hands['Flush Draw'].append(flush_draw_stats)
         
         straight_draw_combos = len(drawing_hands['Straight Draw'])
         if straight_draw_combos > 0:
-            straight_draw_stats = RangeStats.dictToStatsRows(straight_draw, total_combos)
+            straight_draw_stats = RangeStats.dictToStatsRows(straight_draw, total_combos, self.position)
             drawing_hands['Straight Draw'].append(straight_draw_stats)
         
         bdfd_combos = len(drawing_hands['BD Flush Draw'])
         if bdfd_combos > 0:
-            bdfd_stats = RangeStats.dictToStatsRows(bdfd, total_combos)
+            bdfd_stats = RangeStats.dictToStatsRows(bdfd, total_combos, self.position)
             drawing_hands['BD Flush Draw'].append(bdfd_stats)
         
         bdsd_combos = len(drawing_hands['BD Str Draw'])
         if bdsd_combos > 0:
-            bdsd_stats = RangeStats.dictToStatsRows(bdsd, total_combos)
+            bdsd_stats = RangeStats.dictToStatsRows(bdsd, total_combos, self.position)
             drawing_hands['BD Str Draw'].append(bdsd_stats)
 
-        finalStats = RangeStats.dictToStatsRows(drawing_hands, total_combos)
+        finalStats = RangeStats.dictToStatsRows(drawing_hands, total_combos, self.position)
          
         return finalStats
     
     @staticmethod
-    def dictToStatsRows(made_hands, total_combos):
+    def dictToStatsRows(made_hands, total_combos, position):
         '''made_hands parameter is a dictionary of made hands where
         the key is a string of the made hand type name, and the value is a list
         of combo objects that belong to that made hand type.
@@ -1845,7 +1934,7 @@ class RangeStats(QtWidgets.QWidget):
                     del made_hands[hand_type][-1]
                 hand_name = hand_type
                 hand_combos = made_hands[hand_type]
-                stats_row_list.append(StatsRow(hand_name, hand_combos, tot_comb, secondary_rows))
+                stats_row_list.append(StatsRow(hand_name, hand_combos, tot_comb, position, secondary_rows))
         
         return stats_row_list    
     
@@ -1911,7 +2000,7 @@ class StatsRow(QtWidgets.QWidget):
     sendLockedToRangeStatsMain = QtCore.pyqtSignal(set)
     sendUnlockedToRangeStatsMain = QtCore.pyqtSignal(set)
     
-    def __init__(self, name, combo_list, total_combos, secondary_rows = []):
+    def __init__(self, name, combo_list, total_combos, position, secondary_rows = []):
         super().__init__()
         
         width, height = 305, 25
@@ -1919,10 +2008,11 @@ class StatsRow(QtWidgets.QWidget):
         self.width, self.height = width, height
         self.drawHeight = self.height
         
-        self.name = name    # Name of name hand.
+        self.name = name    # Name of made hand.
         self.combos = set()  # Primary Set of Combo Objects
         self.combos.update(combo_list)  
         self.totalCombos = total_combos
+        self.position = position
         
         '''Format secondary StatsRows'''
         self.secondary_StatsRows = secondary_rows  # List of subdivision StatsRow objects
@@ -2021,6 +2111,8 @@ class StatsRow(QtWidgets.QWidget):
         self.extendable = False
         self.extended = False
         
+        self.comboWindow = ComboWindow(self.position, self.name, self.combos)
+        
         self.setMinimumSize(width + 1, height + 1)
     
     def calcHeight(self):
@@ -2077,7 +2169,6 @@ class StatsRow(QtWidgets.QWidget):
         Called when user clicks Lock icon.
         '''
         if self.combos.issubset(self.lockedCombos):
-            #self.lockedCombos.clear()
             comboSet = set()
             comboSet.update(self.combos)
             self.sendUnlockedToRangeStatsMain.emit(comboSet)
@@ -2109,6 +2200,9 @@ class StatsRow(QtWidgets.QWidget):
                             row.hide()
                     self.extendSignal.emit()
             self.update()
+        elif e.buttons() == Qt.RightButton:
+            self.comboWindow.show()
+            self.comboWindow.activateWindow()            
         
     def paintEvent(self, e):
         
@@ -2485,6 +2579,9 @@ class BoardDisplay(QtWidgets.QWidget):
     '''Signal for RangeStats to receive board card changes'''
     sendBoardCards = QtCore.pyqtSignal(list)
     
+    '''Signal for RangeDisplay to receive preflop status'''
+    sendPreflopStatus = QtCore.pyqtSignal(bool)
+    
     def __init__(self):
         super().__init__()
         
@@ -2545,6 +2642,10 @@ class BoardDisplay(QtWidgets.QWidget):
         if self.boardSelection.exec():
             self.board = self.boardSelection.board
             self.sendBoardCards.emit(self.board)
+            if self.board == []:
+                self.sendPreflopStatus.emit(True)
+            else:
+                self.sendPreflopStatus.emit(False)
             self.update()
     
     def update(self):
@@ -2817,6 +2918,9 @@ class ComboWindow(QtWidgets.QWidget):
     window and is typically the position.  origin is the name of combo
     range, i.e. "AKo" or "Top Pair TK" '''
     
+    sendLockedCombos = QtCore.pyqtSignal(set)
+    sendUnlockedCombos = QtCore.pyqtSignal(set)
+    
     def __init__(self, player_text, origin, comboList=set()):
         super().__init__()
         
@@ -2847,6 +2951,7 @@ class ComboWindow(QtWidgets.QWidget):
         self.bluff = set()
         self.call = set()
         self.noAction = set()
+        self.lockedCombos = set()
         
         self.comboList = comboList
         self.comboRows = []
@@ -2869,6 +2974,8 @@ class ComboWindow(QtWidgets.QWidget):
         
         for combo in self.comboRows:
             combo.setParent(self.comboDisplayList)
+            combo.sendLocked.connect(self.receiveLocked)
+            combo.sendUnlocked.connect(self.receiveUnlocked)
             combo.move(x, y)
             y += rowHeight + spacing
         
@@ -2879,10 +2986,25 @@ class ComboWindow(QtWidgets.QWidget):
         else:
             self.comboDisplayArea.setMinimumSize(180, len(self.comboRows) * rowHeight + len(self.comboRows) * spacing + 5)
         
+    def receiveLocked(self, lockedCombo):
+        '''Slot to respond to CombowRow sending a locked combo'''
+        self.lockedCombos.add(lockedCombo)
+        self.sendLockedCombos.emit(self.lockedCombos)
+    
+    def receiveUnlocked(self, unlockedCombo):
+        '''Slot to respond to ComboRow sending an unlocked combo'''
+        self.lockedCombos.discard(unlockedCombo)
+        combos = set()
+        combos.add(unlockedCombo)
+        self.sendUnlockedCombos.emit(combos)
+        
 
 class ComboRow(QtWidgets.QWidget):
     '''Displays One Combo and its actionRects.  Displayed within ComboWindow.
     Used by ComboRect and StatsRow.'''
+    
+    sendLocked = QtCore.pyqtSignal(object)
+    sendUnlocked = QtCore.pyqtSignal(object)
     
     def __init__(self, combo):
         super().__init__()
@@ -2927,7 +3049,11 @@ class ComboRow(QtWidgets.QWidget):
     
     def setLock(self):
         self.locked = not self.locked
-        '''Will need to emit a signal here'''
+        
+        if self.locked:
+            self.sendLocked.emit(self.combo)
+        else:
+            self.sendUnlocked.emit(self.combo)
     
     def setValue(self):
         '''When Value actionRect is clicked'''
