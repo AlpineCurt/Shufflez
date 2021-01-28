@@ -476,6 +476,8 @@ class RangeMatrix(QtWidgets.QWidget):
                     for row in rect.comboWindow.comboRows:
                         if row.combo == combo:
                             row.locked = True
+                            row.update()
+                            rect.comboWindow.activeWindow()
                             break
                     break
     
@@ -1351,12 +1353,16 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.lockedCombos = self.lockedCombos.union(lockedCombos)
         for row in self.made_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
+            row.comboWindow.receiveLocked(self.lockedCombos)
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+                row2.comboWindow.receiveLocked(self.lockedCombos)
         for row in self.drawing_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
+            row.comboWindow.receiveLocked(self.lockedCombos)
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+                row2.comboWindow.receiveLocked(self.lockedCombos)
         self.sendLockedToRangeDisplay.emit(self.lockedCombos)
         self.update()
         
@@ -1367,12 +1373,16 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.lockedCombos = self.lockedCombos.difference(unlockedCombos)
         for row in self.made_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
+            row.comboWindow.receiveLocked(self.lockedCombos)
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+                row2.comboWindow.receiveLocked(self.lockedCombos)
         for row in self.drawing_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
+            row.comboWindow.receiveLocked(self.lockedCombos)
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+                row2.comboWindow.receiveLocked(self.lockedCombos)
         self.sendLockedToRangeDisplay.emit(self.lockedCombos)
         self.update()
     
@@ -1382,12 +1392,16 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.lockedCombos = lockedCombos
         for row in self.made_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
+            row.comboWindow.receiveLocked(self.lockedCombos)
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+                row2.comboWindow.receiveLocked(self.lockedCombos)
         for row in self.drawing_hands.allRows:
             row.lockedCombos = self.lockedCombos.copy()
+            row.comboWindow.receiveLocked(self.lockedCombos)
             for row2 in row.secondary_StatsRows:
                 row2.lockedCombos = self.lockedCombos.copy()
+                row2.comboWindow.receiveLocked(self.lockedCombos)
         self.update()
     
     def clearActions(self):
@@ -1975,6 +1989,10 @@ class RangeStats(QtWidgets.QWidget):
                 y += sec_row_height
             else:
                 y += row.drawHeight
+    
+    def updateLocked(self):
+        '''Updates each ComboWindow with current...hold on...'''
+        pass
         
     def update(self):
         
@@ -2031,8 +2049,8 @@ class StatsRow(QtWidgets.QWidget):
             border_height += height
         self.border = QtCore.QRect(0, 0, width, border_height)
         
-        tri_x = width - 10                    # X coord for starting point of tirangle collapsed indicator
-        tri_y = 8                                  # Y corrd for 'centering' the triable in the row        
+        tri_x = width - 10            # X coord for starting point of tirangle collapsed indicator
+        tri_y = 8                     # Y corrd for 'centering' the triable in the row        
         
         '''Triangle collapsed indicator'''
         self.triCollapsed = QtGui.QPainterPath()
@@ -2974,8 +2992,8 @@ class ComboWindow(QtWidgets.QWidget):
         
         for combo in self.comboRows:
             combo.setParent(self.comboDisplayList)
-            combo.sendLocked.connect(self.receiveLocked)
-            combo.sendUnlocked.connect(self.receiveUnlocked)
+            combo.sendLocked.connect(self.receiveLockedFromRow)
+            combo.sendUnlocked.connect(self.receiveUnlockedFromRow)
             combo.move(x, y)
             y += rowHeight + spacing
         
@@ -2986,17 +3004,39 @@ class ComboWindow(QtWidgets.QWidget):
         else:
             self.comboDisplayArea.setMinimumSize(180, len(self.comboRows) * rowHeight + len(self.comboRows) * spacing + 5)
         
-    def receiveLocked(self, lockedCombo):
-        '''Slot to respond to CombowRow sending a locked combo'''
+    def receiveLockedFromRow(self, lockedCombo):
+        '''Slot to respond to a child CombowRow sending a locked combo'''
         self.lockedCombos.add(lockedCombo)
         self.sendLockedCombos.emit(self.lockedCombos)
     
-    def receiveUnlocked(self, unlockedCombo):
-        '''Slot to respond to ComboRow sending an unlocked combo'''
+    def receiveUnlockedFromRow(self, unlockedCombo):
+        '''Slot to respond to a child ComboRow sending an unlocked combo'''
         self.lockedCombos.discard(unlockedCombo)
         combos = set()
         combos.add(unlockedCombo)
         self.sendUnlockedCombos.emit(combos)
+    
+    def receiveLocked(self, lockedCombos):
+        '''lockedCombos is a complete list of currently locked combos.
+        This method will update all child ComboRows accordingly.'''
+        
+        self.activateWindow()
+        
+        for row in self.comboRows:
+            row.locked = False
+                
+        for combo in lockedCombos:
+            if combo not in self.comboList:
+                continue
+            for row in self.comboRows:
+                if combo == row.combo:
+                    row.locked = True
+                    row.update()
+                    break
+        self.update()
+    
+    def mousePressEvent(self, e):
+        self.activateWindow()
         
 
 class ComboRow(QtWidgets.QWidget):
