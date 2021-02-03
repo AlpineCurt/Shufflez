@@ -62,6 +62,8 @@ class RangeDisplay(QtWidgets.QWidget):
         self.setLayout(layout)
         
         '''Attributes'''
+        self.position = position
+        
         self.selecting = False
         self.preflop = True
         
@@ -82,6 +84,9 @@ class RangeDisplay(QtWidgets.QWidget):
             comRect.comboWindow.sendLockedCombos.connect(self.receiveLockedCombosFromComboWindow)
             comRect.comboWindow.sendUnlockedCombos.connect(self.receiveUnlockedCombosFromComboWindow)
             comRect.comboWindow.sendComboActions.connect(self.receiveComboActionsFromComboWindow)
+    
+    def __repr__(self):
+        return 'RangeDisplay ' + self.position
     
     def receiveActionList(self, actionList):
         '''Slot to respond when RangeStatsMain sends a list of combos
@@ -370,6 +375,9 @@ class RangeMatrix(QtWidgets.QWidget):
         
         '''QtWidget Settings'''
         self.setMinimumSize(boxLen * 13 + 1 + offset[0] * 2, boxLen * 13 + 1 + offset[1] * 2)
+    
+    def __repr__(self):
+        return 'RangeMatrix ' + self.position
         
     def buildGrid(self, boxLen, gridref, offset):
         '''
@@ -1161,6 +1169,9 @@ class RangeStatsMain(QtWidgets.QWidget):
         
         self.drawing_hands = RangeStats(self.position)
         self.drawing_hands.setParent(self)
+    
+    def __repr__(self):
+        return 'RangeStatsMain ' + self.position
         
     def connectStatsRowSignals(self):
         '''Used after calculating made and/or drawing hands to
@@ -1220,6 +1231,8 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.connectStatsRowSignals()
         self.made_hands.update()
         self.drawing_hands.update()
+        
+        self.sendComboActionsToRangeDisplay.emit([self.value, self.bluff, self.call, self.noAction])
         
         self.update()
     
@@ -1600,6 +1613,9 @@ class RangeStats(QtWidgets.QWidget):
         '''Tracks each child StatsRow.extended status.'''
         self.made_hands = self.made_hand_extended_tracker()
         self.drawing_hands = self.drawing_hands_extended_tracker()
+    
+    def __repr__(self):
+        return 'RangeStats ' + self.position
     
     def rowExtendReceive(self):
         '''Slot to respond to StatsRow extendSignal'''
@@ -2233,8 +2249,14 @@ class StatsRow(QtWidgets.QWidget):
         self.extended = False
         
         self.comboWindow = ComboWindow(self.position, self.name, self.combos)
+        self.comboWindow.sendComboActions.connect(self.receiveComboFromComboWindow)
         
         self.setMinimumSize(width + 1, height + 1)
+    
+    def __repr__(self):
+        
+        text = 'StatsRow ' + str(self.position) + ' ' + str(self.name)
+        return text
     
     def calcHeight(self):
         '''
@@ -2297,6 +2319,25 @@ class StatsRow(QtWidgets.QWidget):
         else:
             self.lockedCombos = self.value | self.bluff | self.call | self.noAction
             self.sendLockedToRangeStatsMain.emit(self.lockedCombos)
+    
+    def receiveComboFromComboWindow(self, comboActions):
+        '''Slot to respond to child ComboWindow sending a list of comboActions'''
+        
+        self.value = self.value | comboActions[0]
+        self.value = self.value - (comboActions[1] | comboActions[2] | comboActions[3])
+        
+        self.bluff = self.bluff | comboActions[1]
+        self.bluff = self.bluff - (comboActions[0] | comboActions[2] | comboActions[3])
+        
+        self.call = self.call | comboActions[2]
+        self.call = self.call - (comboActions[0] | comboActions[1] | comboActions[3])
+        
+        self.noAction = self.noAction | comboActions[3]
+        self.noAction = self.noAction - (comboActions[0] | comboActions[1] | comboActions[2])
+        
+        self.sendCombosToRangeStatsMain.emit([self.value, self.bluff, self.call, self.noAction])
+        
+        self.update()        
     
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -3082,13 +3123,21 @@ class ComboWindow(QtWidgets.QWidget):
         
         '''Construct ComboRows'''
         self.buildComboRows(self.comboList)
+    
+    def __repr__(self):
+        text = 'ComboWindow ' + str(self.position.text()) + ' ' + str(self.origin.text())
+        return text
         
     def buildComboRows(self, comboList):
         '''Used during init to construct and position a ComboRow object
         within comboDisplayArea for each combo in comboList'''
         
-        for combo in comboList:
-            self.comboRows.append(ComboRow(combo))
+        #self.sortComboRows(comboList)
+        
+        #for combo in comboList:
+            #self.comboRows.append(ComboRow(combo))
+        
+        self.comboRows = self.sortComboRows(comboList)
         
         rowHeight = self.comboRows[0].rowHeight
         spacing = 3  # gap between each comboRow
@@ -3110,6 +3159,41 @@ class ComboWindow(QtWidgets.QWidget):
             self.comboDisplayArea.setMinimumSize(180, 400)
         else:
             self.comboDisplayArea.setMinimumSize(180, len(self.comboRows) * rowHeight + len(self.comboRows) * spacing + 5)
+    
+    def sortComboRows(self, comboList):
+        '''Sorts ComboRows from high rank to low, and in order of h, d, c, s'''
+        
+        sortedCombos = []
+        
+        for combo in comboList:
+            if len(sortedCombos) == 0:
+                sortedCombos.append(combo)
+            else:
+                for i, combo2 in enumerate(sortedCombos):
+                    if combo.cardA[0] > combo2.cardA[0]:
+                        sortedCombos.insert(i, combo)
+                        break
+                    elif combo.cardA[0] == combo2.cardA[0]:
+                        if combo.cardB[0] > combo2.cardB[0]:
+                            sortedCombos.insert(i, combo)
+                            break
+                        elif combo.cardB[0] == combo2.cardB[0]:
+                            if combo.cardA[1] < combo2.cardA[1]:
+                                sortedCombos.insert(i, combo)
+                                break
+                            elif combo.cardA[1] == combo2.cardA[1]:
+                                if combo.cardB[1] < combo2.cardB[1]:
+                                    sortedCombos.insert(i, combo)
+                                    break
+                else:
+                    sortedCombos.append(combo)
+        
+        comboRows = []
+        for combo in sortedCombos:
+            comboRows.append(ComboRow(combo))
+        
+        return comboRows
+                    
         
     def receiveLockedFromRow(self, lockedCombo):
         '''Slot to respond to a child CombowRow sending a locked combo'''
@@ -3222,6 +3306,9 @@ class ComboRow(QtWidgets.QWidget):
         self.locked = False
         self.inRange = True
         self.action = ''
+    
+    def __repr__(self):
+        return 'ComboRow ' + str(self.combo)
     
     def setLock(self):
         self.locked = not self.locked
