@@ -95,6 +95,7 @@ class PlayerWindow(QtWidgets.QWidget):
         self.rangeStatsDisplay.rangeStatsMain.sendLockedToRangeDisplay.connect(self.rangeDisplay.receiveLockedCombos)
         self.boardDisplay.sendPreflopStatus.connect(self.rangeDisplay.receivePreflopStatus)
         self.rangeDisplay.sendLockedCombosToRangeStatsMain.connect(self.rangeStatsDisplay.rangeStatsMain.receiveLockedCombosFromRangeDisplay)
+        self.rangeDisplay.sendComboActionsToRangeStatsMain.connect(self.rangeStatsDisplay.rangeStatsMain.receiveComboActions)
         
 
 if __name__ == "__main__":
