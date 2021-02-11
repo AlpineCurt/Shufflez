@@ -70,6 +70,7 @@ class RangeDisplay(QtWidgets.QWidget):
         self.action = ''
         
         self.combos = set()
+        self.startingCombos = set()
         self.value = set()
         self.bluff = set()
         self.call = set()
@@ -95,10 +96,17 @@ class RangeDisplay(QtWidgets.QWidget):
         
         self.rangeMatrix.clearGrid()
         
-        self.value = actionList[0]
-        self.bluff = actionList[1]
-        self.call = actionList[2]
-        self.noAction = actionList[3]
+        if len(actionList[0]) == 0 and len(actionList[1]) == 0 and len(actionList[2]) == 0:
+            '''This means the clear button on RangeStatsMain has been clicked'''
+            self.value.clear()
+            self.bluff.clear()
+            self.call.clear()
+            self.noAction = self.startingCombos.copy()
+        else:
+            self.value = actionList[0]
+            self.bluff = actionList[1]
+            self.call = actionList[2]
+            self.noAction = actionList[3]
         
         self.update()
     
@@ -194,8 +202,9 @@ class RangeDisplay(QtWidgets.QWidget):
                                 comboRow.action = 'c'
                             elif combo in self.noAction:
                                 comboRow.action = ''
-                            comboRow.update()
-                            comboRow.activateWindow()
+                            if rect.comboWindow.isVisible():
+                                comboRow.update()
+                                rect.comboWindow.activateWindow()
                             break
                     break
         
@@ -228,27 +237,33 @@ class RangeDisplay(QtWidgets.QWidget):
                 self.call.add(combo)
             elif self.action == '':
                 self.noAction.add(combo)
+            self.startingCombos.add(combo)
                 
         elif not self.selecting:
             self.value.discard(combo)
             self.bluff.discard(combo)
             self.call.discard(combo)
             self.noAction.discard(combo)
+            self.startingCombos.discard(combo)
     
     def onClearClick(self):
         '''Slot for Clear button clicked signal'''
         
         if self.action == 'value':
+            self.startingCombos = self.startingCombos - self.value
             self.value.clear()
         elif self.action == 'bluff':
+            self.startingCombos = self.startingCombos - self.bluff
             self.bluff.clear()
         elif self.action == 'call':
+            self.startingCombos = self.startingCombos - self.call
             self.call.clear()
         else:
             self.value.clear()
             self.bluff.clear()
             self.call.clear()
             self.noAction.clear()
+            self.startingCombos.clear()
             self.rangeMatrix.clearGrid()
         
         self.rangeText.clear()
@@ -280,6 +295,7 @@ class RangeDisplay(QtWidgets.QWidget):
             else:
                 self.noAction.add(combo)
         
+        self.startingCombos = set(range_list)
         self.update()
         self.sendRangesToRangeStats.emit([self.value, self.bluff, self.call, self.noAction])
     
@@ -318,6 +334,8 @@ class RangeDisplay(QtWidgets.QWidget):
             self.rangeText.setText(self.rangeText.rangeListToString(self.bluff))
         elif self.action == 'call':
             self.rangeText.setText(self.rangeText.rangeListToString(self.call))
+        elif self.action == 'bet':
+            self.rangeText.setText(self.rangeText.rangeListToString(self.value | self.bluff))
         else:
             allActionCombos = []
             allActionCombos.extend(self.value)
@@ -1178,6 +1196,7 @@ class RangeStatsMain(QtWidgets.QWidget):
     sendComboActionsToRangeDisplay = QtCore.pyqtSignal(list)
     lockRangeMatrix = QtCore.pyqtSignal(bool)
     sendLockedToRangeDisplay = QtCore.pyqtSignal(set)
+    requestRange = QtCore.pyqtSignal()
     
     def __init__(self, position):
         super().__init__()
@@ -1241,20 +1260,20 @@ class RangeStatsMain(QtWidgets.QWidget):
         call = ShCalc.removeBlockedCombos(self.call, self.board)
         noAction = ShCalc.removeBlockedCombos(self.noAction, self.board)
         
-        self.combos = set()
+        #self.combos = set()
         self.value = set()
         self.bluff = set()
         self.call = set()
         self.noAction = set()
         
-        self.combos.update(combos)
+        #self.combos.update(combos)
         self.value.update(value)
         self.bluff.update(bluff)
         self.call.update(call)
         self.noAction.update(noAction)
         
-        self.made_hands.calc_made_hands(self.combos, self.board)
-        self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.made_hands.calc_made_hands(combos, self.board)
+        self.drawing_hands.calc_drawing_hands(combos, self.board)
         self.connectStatsRowSignals()
         self.made_hands.update()
         self.drawing_hands.update()
@@ -1273,6 +1292,8 @@ class RangeStatsMain(QtWidgets.QWidget):
             noAction = ShCalc.removeBlockedCombos(combos[3], self.board)
             
             self.combos = set()
+            for i in combos:
+                self.combos = self.combos | i
             self.value = set()
             self.bluff = set()
             self.call = set()
@@ -1286,7 +1307,10 @@ class RangeStatsMain(QtWidgets.QWidget):
             self.value = combos[0]
             self.bluff = combos[1]
             self.call = combos[2]
-            self.noAction = combos[3]            
+            self.noAction = combos[3]
+            self.combos = set()
+            for i in combos:
+                self.combos = self.combos | i            
         
         '''Combine value, bluff, call, noAction into single combo list.'''
         combined_combos = []
@@ -1294,14 +1318,14 @@ class RangeStatsMain(QtWidgets.QWidget):
         combined_combos.extend(self.bluff)
         combined_combos.extend(self.call)
         combined_combos.extend(self.noAction)
-        self.combos = combined_combos
+        #self.combos = combined_combos
         
         if len(self.combos) == 0:
             self.made_hands.collapse_all()
             self.drawing_hands.collapse_all()
         
-        self.made_hands.calc_made_hands(self.combos, self.board)
-        self.drawing_hands.calc_drawing_hands(self.combos, self.board)
+        self.made_hands.calc_made_hands(combined_combos, self.board)
+        self.drawing_hands.calc_drawing_hands(combined_combos, self.board)
         self.connectStatsRowSignals()
         self.made_hands.update()
         self.drawing_hands.update()
@@ -1441,8 +1465,6 @@ class RangeStatsMain(QtWidgets.QWidget):
                                 row2.value.discard(combo)
                                 row2.bluff.discard(combo)
                                 row2.call.discard(combo)
-            #if combo not in self.lockedCombos:
-                #self.noAction.add(combo)
         
         if len(actionList) == 4:
             '''actionList from RangeDisplay will be length of 5'''
@@ -1454,73 +1476,85 @@ class RangeStatsMain(QtWidgets.QWidget):
     def updateComboWindows(self):
         '''Updates each StatsRow ComboWindow with the correct action for each combo'''
         
-        '''Made Hands'''
-        for combo in self.combos:
-            for row in self.made_hands.allRows:
-                if combo in row.combos:
-                    for comWinRow in row.comboWindow.comboRows:
-                        if combo == comWinRow.combo:
-                            if combo in self.value:
-                                comWinRow.action = 'v'
-                            elif combo in self.bluff:
-                                comWinRow.action = 'b'
-                            elif combo in self.call:
-                                comWinRow.action = 'c'
-                            elif combo in self.noAction:
-                                comWinRow.action = ''
-                            comWinRow.update()
-                            comWinRow.activateWindow()
-                            for row2 in row.secondary_StatsRows:
-                                for comWinRow2 in row2.comboWindow.comboRows:
-                                    if combo == comWinRow2.combo:
-                                        if combo in self.value:
-                                            comWinRow2.action = 'v'
-                                        elif combo in self.bluff:
-                                            comWinRow2.action = 'b'
-                                        elif combo in self.call:
-                                            comWinRow2.action = 'c'
-                                        elif combo in self.noAction:
-                                            comWinRow2.action = ''
-                                        comWinRow2.update()
-                                        comWinRow2.activateWindow()
-                                        break
-                                break
-                            break
+        '''Clear each StatsRow's ComboWindow action Sets'''
+        for row in self.made_hands.allRows:
+            row.comboWindow.value.clear()
+            row.comboWindow.bluff.clear()
+            row.comboWindow.call.clear()
+            row.comboWindow.noAction.clear()
+            for row2 in row.secondary_StatsRows:
+                row2.comboWindow.value.clear()
+                row2.comboWindow.bluff.clear()
+                row2.comboWindow.call.clear()
+                row2.comboWindow.noAction.clear()                
         
-        '''Drawing Hands'''
-        for combo in self.combos:
-            for row in self.drawing_hands.allRows:
-                if combo in row.combos:
-                    for comWinRow in row.comboWindow.comboRows:
-                        if combo == comWinRow.combo:
-                            if combo in self.value:
-                                comWinRow.action = 'v'
-                            elif combo in self.bluff:
-                                comWinRow.action = 'b'
-                            elif combo in self.call:
-                                comWinRow.action = 'c'
-                            elif combo in self.noAction:
-                                comWinRow.action = ''
-                            comWinRow.update()
-                            comWinRow.activateWindow()
-                            for row2 in row.secondary_StatsRows:
-                                for comWinRow2 in row2.comboWindow.comboRows:
-                                    if combo == comWinRow2.combo:
-                                        if combo in self.value:
-                                            comWinRow2.action = 'v'
-                                        elif combo in self.bluff:
-                                            comWinRow2.action = 'b'
-                                        elif combo in self.call:
-                                            comWinRow2.action = 'c'
-                                        elif combo in self.noAction:
-                                            comWinRow2.action = ''
-                                        comWinRow2.update()
-                                        comWinRow2.activateWindow()
-                                        break
-                                break                            
-                            break        
+        for row in self.drawing_hands.allRows:
+            row.comboWindow.value.clear()
+            row.comboWindow.bluff.clear()
+            row.comboWindow.call.clear()
+            row.comboWindow.noAction.clear()
+            for row2 in row.secondary_StatsRows:
+                row2.comboWindow.value.clear()
+                row2.comboWindow.bluff.clear()
+                row2.comboWindow.call.clear()
+                row2.comboWindow.noAction.clear()            
         
-    
+        '''Made Hands RangeStats Object'''
+        for combo in self.combos:
+            for statsRow in self.made_hands.allRows:
+                if combo in statsRow.combos:
+                    if combo in self.value:
+                        statsRow.comboWindow.value.add(combo)
+                    elif combo in self.bluff:
+                        statsRow.comboWindow.bluff.add(combo)
+                    elif combo in self.call:
+                        statsRow.comboWindow.call.add(combo)
+                    elif combo in self.noAction:
+                        statsRow.comboWindow.noAction.add(combo)
+                    for statsRow2 in statsRow.secondary_StatsRows:
+                        if combo in statsRow2.combos:
+                            if combo in self.value:
+                                statsRow2.comboWindow.value.add(combo)
+                            elif combo in self.bluff:
+                                statsRow2.comboWindow.bluff.add(combo)
+                            elif combo in self.call:
+                                statsRow2.comboWindow.call.add(combo)
+                            elif combo in self.noAction:
+                                statsRow2.comboWindow.noAction.add(combo)
+                            
+        '''Drawing Hands RangeStats Object'''
+        for combo in self.combos:
+            for statsRow in self.drawing_hands.allRows:
+                if combo in statsRow.combos:
+                    if combo in self.value:
+                        statsRow.comboWindow.value.add(combo)
+                    elif combo in self.bluff:
+                        statsRow.comboWindow.bluff.add(combo)
+                    elif combo in self.call:
+                        statsRow.comboWindow.call.add(combo)
+                    elif combo in self.noAction:
+                        statsRow.comboWindow.noAction.add(combo)
+                    for statsRow2 in statsRow.secondary_StatsRows:
+                        if combo in statsRow2.combos:
+                            if combo in self.value:
+                                statsRow2.comboWindow.value.add(combo)
+                            elif combo in self.bluff:
+                                statsRow2.comboWindow.bluff.add(combo)
+                            elif combo in self.call:
+                                statsRow2.comboWindow.call.add(combo)
+                            elif combo in self.noAction:
+                                statsRow2.comboWindow.noAction.add(combo)      
+        
+        for statsRow in self.made_hands.allRows:
+            statsRow.comboWindow.updateComboRows()
+            for statsRow2 in statsRow.secondary_StatsRows:
+                statsRow2.comboWindow.updateComboRows()
+        
+        for statsRow in self.drawing_hands.allRows:
+            statsRow.comboWindow.updateComboRows()
+            for statsRow2 in statsRow.secondary_StatsRows:
+                statsRow2.comboWindow.updateComboRows()
+                
     def receiveLockedCombos(self, lockedCombos):
         '''
         Slot for signal from StatsRow that sends a Set of combos to be locked.
@@ -1583,14 +1617,18 @@ class RangeStatsMain(QtWidgets.QWidget):
         '''Clears action assignments for all StatsRows and sets all
         combos to noAction.'''
         
+        #self.noAction.clear()
+        
+        for combo in self.value:
+            self.noAction.add(combo)
+        for combo in self.bluff:
+            self.noAction.add(combo)
+        for combo in self.call:
+            self.noAction.add(combo)
         self.value.clear()
         self.bluff.clear()
         self.call.clear()
-        self.noAction.clear()
         self.lockedCombos.clear()
-        
-        for combo in self.combos:
-            self.noAction.add(combo)
         
         for row in self.made_hands.allRows:
             row.value.clear()
@@ -1598,12 +1636,14 @@ class RangeStatsMain(QtWidgets.QWidget):
             row.call.clear()
             row.noAction.clear()
             row.lockedCombos.clear()
+            row.comboWindow.clearActions()
             for row2 in row.secondary_StatsRows:
                 row2.value.clear()
                 row2.bluff.clear()
                 row2.call.clear()
                 row2.noAction.clear()
                 row2.lockedCombos.clear()
+                row2.comboWindow.clearActions()
         
         for row in self.drawing_hands.allRows:
             row.value.clear()
@@ -1611,12 +1651,14 @@ class RangeStatsMain(QtWidgets.QWidget):
             row.call.clear()
             row.noAction.clear()
             row.lockedCombos.clear()
+            row.comboWindow.clearActions()
             for row2 in row.secondary_StatsRows:
                 row2.value.clear()
                 row2.bluff.clear()
                 row2.call.clear()
                 row2.noAction.clear()
                 row2.lockedCombos.clear()
+                row2.comboWindow.clearActions()
         
         self.lockRangeMatrix.emit(False)
         self.sendComboActionsToRangeDisplay.emit([self.value, self.bluff, self.call, self.noAction])
@@ -2502,6 +2544,7 @@ class ActionBuckets(QtWidgets.QWidget):
         super().__init__()
         
         width, height = 62, 25
+        betScale = .75
         ol_w = 5
         
         '''Establish Layout'''
@@ -2511,14 +2554,18 @@ class ActionBuckets(QtWidgets.QWidget):
         self.valueButton = ActionButton(width, height, ol_w, 'Value')
         self.bluffButton = ActionButton(width, height, ol_w, 'Bluff')
         self.callButton = ActionButton(width, height, ol_w, 'Call')
+        self.betButton = ActionButton(width, height * betScale, ol_w, 'Bet Freq')
+        self.betButton.labelSize = 13
         
         layout.addWidget(self.valueButton, 0, 0, Qt.AlignCenter)
         layout.addWidget(self.bluffButton, 0, 1, Qt.AlignCenter)
         layout.addWidget(self.callButton, 0, 2, Qt.AlignCenter)
+        layout.addWidget(self.betButton, 1, 3, Qt.AlignCenter)
         
         self.valueButton.clicked.connect(self.buttonClicked)
         self.bluffButton.clicked.connect(self.buttonClicked)
         self.callButton.clicked.connect(self.buttonClicked)
+        self.betButton.clicked.connect(self.buttonClicked)
         
         '''Create, format, and add Combo and Frequency labels to layout'''
         self.valComLabel = QtWidgets.QLabel('0')
@@ -2548,7 +2595,7 @@ class ActionBuckets(QtWidgets.QWidget):
         layout.addWidget(self.bluffFreqLabel, 2, 1, Qt.AlignCenter)
         layout.addWidget(self.callFreqLabel, 2, 2, Qt.AlignCenter)
         
-        '''Create, format, and add the Value : Bluff and Continue Frequency labels'''
+        '''Create, format, and add the Value : Bluff, Continue, and Bet Frequency labels'''
         self.valueBluffLabel = QtWidgets.QLabel('Value : Bluff')
         self.contFreqLabel = QtWidgets.QLabel('Continue Freq')
         
@@ -2557,18 +2604,21 @@ class ActionBuckets(QtWidgets.QWidget):
         self.contFreqLabel.setFont(comboFont)
         
         layout.addWidget(self.valueBluffLabel, 0, 3, Qt.AlignLeft)
-        layout.addWidget(self.contFreqLabel, 1, 3, Qt.AlignLeft)
+        layout.addWidget(self.contFreqLabel, 2, 3, Qt.AlignLeft)
         
         self.valueBluffRatio = QtWidgets.QLabel('0 : 0')
         self.contFreqNum = QtWidgets.QLabel('')
+        self.betFreqNum = QtWidgets.QLabel('')
         
         comboFont.setBold(True)
         comboFont.setPixelSize(15)
         self.valueBluffRatio.setFont(comboFont)
+        self.betFreqNum.setFont(comboFont)
         self.contFreqNum.setFont(comboFont)
         
         layout.addWidget(self.valueBluffRatio, 0, 4, Qt.AlignLeft)
-        layout.addWidget(self.contFreqNum, 1, 4, Qt.AlignLeft)
+        layout.addWidget(self.betFreqNum, 1, 4, Qt.AlignLeft)
+        layout.addWidget(self.contFreqNum, 2, 4, Qt.AlignLeft)
         
         '''Total Combos and Unassigned Combos Labels'''
         self.noActionLabel = QtWidgets.QLabel('Unassigned Combos: 0')
@@ -2610,6 +2660,8 @@ class ActionBuckets(QtWidgets.QWidget):
             self.bluffButton.selected = False
         if self.callButton.action != action:
             self.callButton.selected = False
+        if self.betButton.action != action:
+            self.betButton.selected = False
         
         '''Emit signal to tell RangeStats and RangeDisplay which action is selected.'''
         if self.valueButton.selected:
@@ -2618,6 +2670,8 @@ class ActionBuckets(QtWidgets.QWidget):
             self.actionSelected.emit('bluff')
         elif self.callButton.selected:
             self.actionSelected.emit('call')
+        elif self.betButton.selected:
+            self.actionSelected.emit('bet')
         else:
             self.actionSelected.emit('')
         
@@ -2694,14 +2748,30 @@ class ActionBuckets(QtWidgets.QWidget):
         self.valueBluffRatio.setText(ratio_text)
         
         '''Update Continue Frequency'''
-        if len(self.board) < 3 or self.totalCombos == 0:
+        if self.totalCombos == 0:
             self.contFreqNum.setText('')
         else:
             contCombos = len(self.value) + len(self.bluff) + len(self.call)
-            contFreq = round(contCombos / self.totalCombos * 100, 1)
+            if len(self.board) < 3:
+                contFreq = round(contCombos / 1326 * 100, 2) 
+            else:
+                contFreq = round(contCombos / self.totalCombos * 100, 1)
             if contFreq.is_integer():
                 contFreq = round(contFreq)
             self.contFreqNum.setText(str(contFreq) + '%')
+        
+        '''Update Bet Frequency'''
+        if self.totalCombos == 0:
+            self.betFreqNum.setText('')
+        else:
+            betCombos = len(self.value) + len(self.bluff)
+            if len(self.board) < 3:
+                betFreq = round(betCombos / 1326 * 100, 2)
+            else:
+                betFreq = round(betCombos / self.totalCombos * 100, 1)
+            if betFreq.is_integer():
+                betFreq = round(betFreq)
+            self.betFreqNum.setText(str(betFreq) + '%')
         
         '''Update noActionLabel and totalCombosLabel'''
         if self.totalCombos != 0:
@@ -2732,11 +2802,22 @@ class ActionButton(QtWidgets.QWidget):
     def __init__(self, width, height, ol_w, action):
         super().__init__()
         
+        self.ol_w = ol_w
+        self.rectWidth = width
+        self.rectHeight = height
+        
         self.selected = False
         self.action = action
         self.button = QtCore.QRect(ol_w, ol_w, width, height)
         self.outline = QtCore.QRect(0, 0, width + 2 * ol_w, height + 2 * ol_w)
         self.label = QtCore.QRect((width / 6), (height / 6), width * (2 / 3), height * (2 / 3))
+        
+        '''Half-Color Triangle'''
+        self.halfColorTri = QtGui.QPainterPath()
+        self.halfColorTri.moveTo(ol_w, ol_w)
+        self.halfColorTri.lineTo(ol_w + width, ol_w)
+        self.halfColorTri.lineTo(ol_w + width, ol_w + height)
+        self.halfColorTri.closeSubpath()        
         
         self.valueBrush = [255, 77, 77]
         self.bluffBrush = [255, 166, 166]
@@ -2779,8 +2860,12 @@ class ActionButton(QtWidgets.QWidget):
             painter.fillRect(self.button, value)
         elif self.action == 'Bluff':
             painter.fillRect(self.button, bluff)
-        else:
+        elif self.action == 'Call':
             painter.fillRect(self.button, call)
+        elif self.action == 'Bet Freq':
+            painter.fillRect(self.button, value)
+            painter.fillPath(self.halfColorTri, bluff)
+            
             
         painter.drawRect(self.button)
         
@@ -3176,6 +3261,29 @@ class ComboWindow(QtWidgets.QWidget):
         layout.addWidget(self.clearButton, 2, 0)
         self.clearButton.clicked.connect(self.onClearClick)
         
+        self.lockAllButton = QtWidgets.QPushButton('Lock All')
+        layout.addWidget(self.lockAllButton, 2, 1)
+        self.lockAllButton.clicked.connect(self.onLockAllClick)
+        
+        self.unlockAllButton = QtWidgets.QPushButton('Unlock All')
+        layout.addWidget(self.unlockAllButton, 2, 2)
+        self.unlockAllButton.clicked.connect(self.onUnlockAllClick)
+        
+        self.remainingLabel = QtWidgets.QLabel('Assign Remaining Combos to:')
+        layout.addWidget(self.remainingLabel, 3, 0, 1, 5)
+        
+        self.vRemainButton = QtWidgets.QPushButton('Value')
+        layout.addWidget(self.vRemainButton, 4, 0)
+        self.vRemainButton.clicked.connect(self.onValueRemainClick)
+        
+        self.bRemainButton = QtWidgets.QPushButton('Bluff')
+        layout.addWidget(self.bRemainButton, 4, 1)
+        self.bRemainButton.clicked.connect(self.onBluffRemainClick)
+        
+        self.cRemainButton = QtWidgets.QPushButton('Call')
+        layout.addWidget(self.cRemainButton, 4, 2)
+        self.cRemainButton.clicked.connect(self.onCallRemainClick)
+        
         '''Attributes'''
         self.value = set()
         self.bluff = set()
@@ -3255,26 +3363,71 @@ class ComboWindow(QtWidgets.QWidget):
         return comboRows
     
     def clearActions(self):
-        '''Sets all child ComboRows to noAction.'''
+        '''Sets all unlocked child ComboRows to noAction'''
         for row in self.comboRows:
-            if not row.locked and row.inRange:
-                self.value.discard(row.combo)
-                self.bluff.discard(row.combo)
-                self.call.discard(row.combo)
-                self.noAction.add(row.combo)
-                row.action = ''
-            row.update()
-        
-        #self.update()
+            row.clearAction()
+            self.value.discard(row.combo)
+            self.bluff.discard(row.combo)
+            self.call.discard(row.combo)
+            self.noAction.add(row.combo)
     
     def onClearClick(self):
         '''Slot for Clear button signal'''
-        #print('Clear Button Clicked')
-        #self.clearActions()
-        #self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+        self.clearActions()
+        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+    
+    def onLockAllClick(self):
+        '''Slot for Lock All button'''
+        
         for row in self.comboRows:
-            row.clearAction()
-        #self.update()
+            if row.inRange:
+                row.locked = True
+                row.sendLocked.emit(row.combo)
+    
+    def onUnlockAllClick(self):
+        '''Slot for Unlock All button'''
+        
+        for row in self.comboRows:
+            if row.inRange:
+                row.locked = False
+                row.sendUnlocked.emit(row.combo)
+                row.update()
+    
+    def onValueRemainClick(self):
+        '''Slot for assign remaining to value button'''
+        
+        for row in self.comboRows:
+            if row.action == '' and row.inRange:
+                row.action = 'v'
+                #row.sendCombo.emit([[row.combo], [], [], []])
+                self.value.add(row.combo)
+                self.noAction.discard(row.combo)
+                row.update()
+        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+    
+    def onBluffRemainClick(self):
+        '''Slot for assign remaining to bluff button'''
+        
+        for row in self.comboRows:
+            if row.action == '' and row.inRange:
+                row.action = 'b'
+                #row.sendCombo.emit([[], [row.combo], [], []])
+                self.bluff.add(row.combo)
+                self.noAction.discard(row.combo)
+                row.update()
+        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+    
+    def onCallRemainClick(self):
+        '''Slot for assign remaining to call button'''
+        
+        for row in self.comboRows:
+            if row.action == '' and row.inRange:
+                row.action = 'c'
+                #row.sendCombo.emit([[], [], [row.combo], []])
+                self.call.add(row.combo)
+                self.noAction.discard(row.combo)
+                row.update()
+        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
         
     def receiveLockedFromRow(self, lockedCombo):
         '''Slot to respond to a child CombowRow sending a locked combo'''
@@ -3331,6 +3484,35 @@ class ComboWindow(QtWidgets.QWidget):
                     self.noAction.add(action[0])
                     break
         self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+    
+    def updateComboRows(self):
+        '''Using its self value, bluff, call, noAction Sets, this updates
+        each ComboRow object.'''
+        
+        for combo in self.value:
+            for row in self.comboRows:
+                if row.combo == combo:
+                    row.action = 'v'
+                    row.update()
+                    break
+        for combo in self.bluff:
+            for row in self.comboRows:
+                if row.combo == combo:
+                    row.action = 'b'
+                    row.update()
+                    break
+        for combo in self.call:
+            for row in self.comboRows:
+                if row.combo == combo:
+                    row.action = 'c'
+                    row.update()
+                    break
+        for combo in self.noAction:
+            for row in self.comboRows:
+                if row.combo == combo:
+                    row.action = ''
+                    row.update()
+                    break
                 
     def mousePressEvent(self, e):
         self.activateWindow()
@@ -3437,7 +3619,7 @@ class ComboRow(QtWidgets.QWidget):
         if self.locked or not self.inRange:
             return
         self.action = ''
-        self.sendCombo.emit([[], [], [], [self.combo]])
+        #self.sendCombo.emit([[], [], [], [self.combo]])
         self.update()
     
     def mousePressEvent(self, e):
