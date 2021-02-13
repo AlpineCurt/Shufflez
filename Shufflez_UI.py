@@ -62,8 +62,8 @@ class PlayerWindow(QtWidgets.QWidget):
         self.position = position
         
         '''Create ActionBuckets'''
-        self.action_buckets = ShufflezWidgets.ActionBuckets()
-        layout.addWidget(self.action_buckets, 0, 0, Qt.AlignTop)
+        self.actionBuckets = ShufflezWidgets.ActionBuckets()
+        layout.addWidget(self.actionBuckets, 0, 0, Qt.AlignTop)
         
         '''Create RangeDisplay'''
         self.rangeDisplay = ShufflezWidgets.RangeDisplay(self.position)
@@ -84,20 +84,29 @@ class PlayerWindow(QtWidgets.QWidget):
         
         self.preflop = True  # Preflop condiditon determines labeling, and RangeStatsDisplay mode
         
-        '''Connect Signals and Slots between Widgets'''
-        self.action_buckets.actionSelected.connect(self.rangeDisplay.setAction)
-        self.rangeDisplay.sendRangesToActionBuckets.connect(self.action_buckets.receiveRanges)
-        self.boardDisplay.sendBoardCards.connect(self.rangeStatsDisplay.rangeStatsMain.receiveBoard)
-        self.boardDisplay.sendBoardCards.connect(self.action_buckets.receiveBoard)
-        self.rangeDisplay.sendRangesToRangeStats.connect(self.rangeStatsDisplay.rangeStatsMain.receiveCombos)
-        self.rangeStatsDisplay.rangeStatsMain.sendComboActionsToRangeDisplay.connect(self.rangeDisplay.receiveActionList)
-        self.rangeStatsDisplay.rangeStatsMain.lockRangeMatrix.connect(self.rangeDisplay.receiveLockStatus)
-        self.rangeStatsDisplay.rangeStatsMain.sendLockedToRangeDisplay.connect(self.rangeDisplay.receiveLockedCombos)
-        self.boardDisplay.sendPreflopStatus.connect(self.rangeDisplay.receivePreflopStatus)
-        self.rangeDisplay.sendLockedCombosToRangeStatsMain.connect(self.rangeStatsDisplay.rangeStatsMain.receiveLockedCombosFromRangeDisplay)
-        self.rangeDisplay.sendComboActionsToRangeStatsMain.connect(self.rangeStatsDisplay.rangeStatsMain.receiveComboActions)
+        '''Connect Signals and Slots'''
+        self.rangeDisplay.updateSignal.connect(self.receiveUpdate)
+        self.actionBuckets.updateSignal.connect(self.receiveUpdate)
+        self.boardDisplay.updateSignal.connect(self.receiveUpdate)
+        self.rangeStatsDisplay.rangeStatsMain.updateSignal.connect(self.receiveUpdate)
+    
+    def receiveUpdate(self, updatePack):
+        '''Handles update signals from child Widgets'''
         
-
+        if updatePack.origin == 'RangeDisplay':
+            self.actionBuckets.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+        elif updatePack.origin == 'ActionBuckets':
+            self.rangeDisplay.receiveUpdate(updatePack)
+        elif updatePack.origin == 'BoardDisplay':
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+        elif updatePack.origin == 'RangeStatsMain':
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)
+            
+        
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     ui = Ui_MainWindow()
