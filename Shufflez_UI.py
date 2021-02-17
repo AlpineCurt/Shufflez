@@ -83,12 +83,14 @@ class PlayerWindow(QtWidgets.QWidget):
         self.setLayout(layout)
         
         self.preflop = True  # Preflop condiditon determines labeling, and RangeStatsDisplay mode
+        self.comboWindows = []
         
         '''Connect Signals and Slots'''
         self.rangeDisplay.updateSignal.connect(self.receiveUpdate)
         self.actionBuckets.updateSignal.connect(self.receiveUpdate)
         self.boardDisplay.updateSignal.connect(self.receiveUpdate)
         self.rangeStatsDisplay.rangeStatsMain.updateSignal.connect(self.receiveUpdate)
+        self.rangeDisplay.rangeMatrix.requestComboWindowSignal.connect(self.createComboWindow)  
     
     def receiveUpdate(self, updatePack):
         '''Handles update signals from child Widgets'''
@@ -96,16 +98,60 @@ class PlayerWindow(QtWidgets.QWidget):
         if updatePack.origin == 'RangeDisplay':
             self.actionBuckets.receiveUpdate(updatePack)
             self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.connectStatsRowSignals()
         elif updatePack.origin == 'ActionBuckets':
             self.rangeDisplay.receiveUpdate(updatePack)
         elif updatePack.origin == 'BoardDisplay':
             self.rangeDisplay.receiveUpdate(updatePack)
             self.actionBuckets.receiveUpdate(updatePack)
             self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.connectStatsRowSignals()
         elif updatePack.origin == 'RangeStatsMain':
             self.rangeDisplay.receiveUpdate(updatePack)
             self.actionBuckets.receiveUpdate(updatePack)
+    
+    def connectStatsRowSignals(self):
+        '''After RangeStatsMain calculates made hands, each StatsRow requestComboWindow
+        signal needs to be connected to createComboWindow'''
+        
+        for row in self.rangeStatsDisplay.rangeStatsMain.made_hands.allRows:
+            row.requestComboWindowSignal.connect(self.createComboWindow)
+        for row in self.rangeStatsDisplay.rangeStatsMain.drawing_hands.allRows:
+            row.requestComboWindowSignal.connect(self.createComboWindow)
+    
+    def createComboWindow(self, updatePack):
+        '''Slot when RangeMatrix or a StatsRow emits requestComboWindow signal'''
+        
+        comboWindow = ShufflezWidgets.ComboWindow(self.position, updatePack)
+        
+        if comboWindow in self.comboWindows:
+            for comWin in self.comboWindows:
+                if comboWindow == comWin:
+                    comWin.show()
+        else:
+            self.comboWindows.append(comboWindow)
+            self.comboWindows[-1].closeSignal.connect(self.deleteComboWindow)
+            self.comboWindows[-1].updateSignal.connect(self.updateFromComboWindow)
+    
+    def updateFromComboWindow(self, updatePack):
+        '''Updates displays of all child widgets when a change is made in a ComboWindow'''
+        if len(updatePack.origin) <= 3:
+            '''This means it's from a ComboRect'''
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.rangeDisplay.sendUpdate()
+        else:
+            '''This means it's from a StatsRow'''
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.sendUpdate()
             
+    def deleteComboWindow(self, origin):
+        '''Slot when a ComboWindow emits a closeSignal'''
+        
+        for comboWindow in self.comboWindows:
+            if comboWindow == origin:
+                self.comboWindows.remove(comboWindow)
+                del comboWindow
+                break
         
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

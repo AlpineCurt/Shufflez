@@ -103,6 +103,32 @@ class RangeDisplay(QtWidgets.QWidget):
             self.value = updatePack.value
             self.bluff = updatePack.bluff
             self.call = updatePack.call
+        elif len(updatePack.origin) <= 3:
+            '''This means it's an update from a single ComboRect ComboWindow'''
+            for combo in updatePack.value:
+                self.value.add(combo)
+                self.bluff.discard(combo)
+                self.call.discard(combo)
+                self.noAction.discard(combo)
+            for combo in updatePack.bluff:
+                self.value.discard(combo)
+                self.bluff.add(combo)
+                self.call.discard(combo)
+                self.noAction.discard(combo)
+            for combo in updatePack.call:
+                self.value.discard(combo)
+                self.bluff.discard(combo)
+                self.call.add(combo)
+                self.noAction.discard(combo)
+            for combo in updatePack.noAction:
+                self.value.discard(combo)
+                self.bluff.discard(combo)
+                self.call.discard(combo)
+                self.noAction.add(combo)   
+            for combo in updatePack.startingCombos:
+                self.lockedCombos.discard(combo)
+            for combo in updatePack.lockedCombos:
+                self.lockedCombos.add(combo)
             
         self.update()
     
@@ -235,6 +261,13 @@ class RangeDisplay(QtWidgets.QWidget):
         
         self.updateSignal.emit(updatePack)
     
+    #def updateFromComboWindow(self, updatePack):
+        #'''Updates internal action Sets'''
+        #for combo in updatePack.value:
+            #self.value.add(combo)
+            #self.bluff.discard(combo)
+            #self.
+    
     def update(self):
         
         '''Update RangeMatrix'''
@@ -284,6 +317,7 @@ class RangeMatrix(QtWidgets.QWidget):
     
     comboRectClicked = QtCore.pyqtSignal(str)
     mouseOver = QtCore.pyqtSignal(list)
+    requestComboWindowSignal = QtCore.pyqtSignal(object)
     
     def __init__(self, position):
         super().__init__()
@@ -456,6 +490,23 @@ class RangeMatrix(QtWidgets.QWidget):
                             break
                     break
     
+    def requestComboWindow(self, comboRect):
+        '''Prepares and emits requestComboWindowSignal'''
+        
+        updatePack = UpdatePack()
+        updatePack.origin = comboRect.name
+        updatePack.value = comboRect.value
+        updatePack.bluff = comboRect.bluff
+        updatePack.call = comboRect.call
+        updatePack.noAction = comboRect.noAction
+        if self.locked:
+            updatePack.startingCombos = comboRect.value | comboRect.bluff | comboRect.call | comboRect.noAction
+        else:
+            updatePack.startingCombos = comboRect.comboList
+        updatePack.lockedCombos = comboRect.lockedCombos
+        
+        self.requestComboWindowSignal.emit(updatePack)      
+    
     def mousePressEvent(self, e):
         if e.buttons() == Qt.LeftButton and not self.locked:
             '''Determine which ComboRect was clicked and emit the name of it'''
@@ -464,11 +515,15 @@ class RangeMatrix(QtWidgets.QWidget):
                     self.comboRectClicked.emit(combo.name)
                     self.mouseOver.emit(combo.comboList)
                     break
-        elif e.buttons() == Qt.RightButton:
-            for combo in self.matrix:
-                if combo.rect.contains(e.x(), e.y()):
-                    combo.comboWindow.show()
-                    combo.comboWindow.activateWindow()
+        super().mousePressEvent(e)
+    
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.RightButton:
+            for comboRect in self.matrix:
+                if comboRect.rect.contains(e.x(), e.y()):
+                    self.requestComboWindow(comboRect)
+                    break
+        super().mousePressEvent(e)
     
     def mouseMoveEvent(self, e):
         '''Emit list of combos of moused over ComboRect'''
@@ -1133,6 +1188,10 @@ class RangeStatsMain(QtWidgets.QWidget):
         elif updatePack.origin == 'RangeDisplay':
             self.receiveCombos([updatePack.value, updatePack.bluff, updatePack.call, updatePack.noAction])
         elif updatePack.origin == 'StatsRow':
+            self.receiveLockedCombos(updatePack)
+            self.receiveComboActions(updatePack)
+        else:
+            '''This should be from a StatsRow ComboWindow update'''
             self.receiveLockedCombos(updatePack)
             self.receiveComboActions(updatePack)
         
@@ -1991,6 +2050,7 @@ class StatsRow(QtWidgets.QWidget):
     
     extendSignal = QtCore.pyqtSignal()    
     updateSignal = QtCore.pyqtSignal(object)
+    requestComboWindowSignal = QtCore.pyqtSignal(object)
     
     def __init__(self, name, combo_list, total_combos, position, secondary_rows = []):
         super().__init__()
@@ -2191,6 +2251,21 @@ class StatsRow(QtWidgets.QWidget):
         self.sendUpdate()
         self.update()
     
+    def requestComboWindow(self):
+        '''Prepares and emits requestComboWindowSignal'''
+        
+        updatePack = UpdatePack()
+        updatePack.origin = self.name
+        updatePack.value = self.value
+        updatePack.bluff = self.bluff
+        updatePack.call = self.call
+        updatePack.noAction = self.noAction
+        updatePack.startingCombos = self.combos
+        updatePack.unlockedCombos = self.unlockedCombos
+        updatePack.lockedCombos = self.lockedCombos
+        
+        self.requestComboWindowSignal.emit(updatePack)              
+    
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             if self.valueRect.contains(e.x(), e.y()):
@@ -2214,7 +2289,9 @@ class StatsRow(QtWidgets.QWidget):
                         for row in self.secondary_StatsRows:
                             row.hide()
                     self.extendSignal.emit()
-            self.update()           
+            self.update()
+        elif e.button() == Qt.RightButton:
+            self.requestComboWindow()
         
     def paintEvent(self, e):
         
@@ -2986,20 +3063,24 @@ class ComboWindow(QtWidgets.QWidget):
     window and is typically the position.  origin is the name of combo
     range, i.e. "AKo" or "Top Pair TK" '''
     
-    sendLockedCombos = QtCore.pyqtSignal(set)
-    sendUnlockedCombos = QtCore.pyqtSignal(set)
-    sendComboActions = QtCore.pyqtSignal(list)
+    closeSignal = QtCore.pyqtSignal(object)
+    updateSignal = QtCore.pyqtSignal(object)
+    
+    #sendLockedCombos = QtCore.pyqtSignal(set)
+    #sendUnlockedCombos = QtCore.pyqtSignal(set)
+    #sendComboActions = QtCore.pyqtSignal(list)
     '''list is [valueSet, bluffSet, callSet, noActionSet]'''
     
-    def __init__(self, player_text, origin, comboList=set()):
+    def __init__(self, position, updatePack):
+        
         super().__init__()
         
         layout = QtWidgets.QGridLayout()
         
         '''Position and Origin Lables, and their formatting'''
-        self.position = QtWidgets.QLabel(player_text, self)
+        self.position = QtWidgets.QLabel(position, self)
         layout.addWidget(self.position, 0, 0)
-        self.origin = QtWidgets.QLabel(origin, self)
+        self.origin = QtWidgets.QLabel(updatePack.origin, self)
         layout.addWidget(self.origin, 0, 1)
         
         font = QtGui.QFont()
@@ -3045,21 +3126,37 @@ class ComboWindow(QtWidgets.QWidget):
         self.cRemainButton.clicked.connect(self.onCallRemainClick)
         
         '''Attributes'''
-        self.value = set()
-        self.bluff = set()
-        self.call = set()
-        self.noAction = set()
-        self.lockedCombos = set()
+        self.value = updatePack.value
+        self.bluff = updatePack.bluff
+        self.call = updatePack.call
+        self.noAction = updatePack.noAction
+        self.lockedCombos = updatePack.lockedCombos
         
-        self.comboList = comboList
+        self.text = 'ComboWindow ' + str(self.position.text()) + ' ' + str(self.origin.text())
+        
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+                
+        self.comboList = updatePack.startingCombos
         self.comboRows = []
         
         '''Construct ComboRows'''
         self.buildComboRows(self.comboList)
+        self.updateComboRows()
+        
+        self.show()
     
     def __repr__(self):
-        text = 'ComboWindow ' + str(self.position.text()) + ' ' + str(self.origin.text())
-        return text
+        return self.text
+    
+    def __eq__(self, other):
+        
+        if self.text == other.text:
+            return True
+        else:
+            return False    
+    
+    def closeEvent(self, e):
+        self.closeSignal.emit(self)
         
     def buildComboRows(self, comboList):
         '''Used during init to construct and position a ComboRow object
@@ -3134,7 +3231,8 @@ class ComboWindow(QtWidgets.QWidget):
     def onClearClick(self):
         '''Slot for Clear button signal'''
         self.clearActions()
-        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def onLockAllClick(self):
         '''Slot for Lock All button'''
@@ -3143,6 +3241,8 @@ class ComboWindow(QtWidgets.QWidget):
             if row.inRange:
                 row.locked = True
                 row.sendLocked.emit(row.combo)
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def onUnlockAllClick(self):
         '''Slot for Unlock All button'''
@@ -3152,6 +3252,8 @@ class ComboWindow(QtWidgets.QWidget):
                 row.locked = False
                 row.sendUnlocked.emit(row.combo)
                 row.update()
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def onValueRemainClick(self):
         '''Slot for assign remaining to value button'''
@@ -3159,11 +3261,11 @@ class ComboWindow(QtWidgets.QWidget):
         for row in self.comboRows:
             if row.action == '' and row.inRange:
                 row.action = 'v'
-                #row.sendCombo.emit([[row.combo], [], [], []])
                 self.value.add(row.combo)
                 self.noAction.discard(row.combo)
                 row.update()
-        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def onBluffRemainClick(self):
         '''Slot for assign remaining to bluff button'''
@@ -3171,11 +3273,11 @@ class ComboWindow(QtWidgets.QWidget):
         for row in self.comboRows:
             if row.action == '' and row.inRange:
                 row.action = 'b'
-                #row.sendCombo.emit([[], [row.combo], [], []])
                 self.bluff.add(row.combo)
                 self.noAction.discard(row.combo)
                 row.update()
-        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def onCallRemainClick(self):
         '''Slot for assign remaining to call button'''
@@ -3183,23 +3285,25 @@ class ComboWindow(QtWidgets.QWidget):
         for row in self.comboRows:
             if row.action == '' and row.inRange:
                 row.action = 'c'
-                #row.sendCombo.emit([[], [], [row.combo], []])
                 self.call.add(row.combo)
                 self.noAction.discard(row.combo)
                 row.update()
-        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
         
     def receiveLockedFromRow(self, lockedCombo):
         '''Slot to respond to a child CombowRow sending a locked combo'''
         self.lockedCombos.add(lockedCombo)
-        self.sendLockedCombos.emit(self.lockedCombos)
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def receiveUnlockedFromRow(self, unlockedCombo):
         '''Slot to respond to a child ComboRow sending an unlocked combo'''
         self.lockedCombos.discard(unlockedCombo)
         combos = set()
         combos.add(unlockedCombo)
-        self.sendUnlockedCombos.emit(combos)
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def receiveLocked(self, lockedCombos):
         '''lockedCombos is a complete list of currently locked combos.
@@ -3243,7 +3347,8 @@ class ComboWindow(QtWidgets.QWidget):
                 elif i == 3:
                     self.noAction.add(action[0])
                     break
-        self.sendComboActions.emit([self.value, self.bluff, self.call, self.noAction])
+        self.sendUpdate()
+        #self.comboWindowClicked.emit(self.origin.text())
     
     def updateComboRows(self):
         '''Using its self value, bluff, call, noAction Sets, this updates
@@ -3253,29 +3358,40 @@ class ComboWindow(QtWidgets.QWidget):
             for row in self.comboRows:
                 if row.combo == combo:
                     row.action = 'v'
-                    row.update()
                     break
         for combo in self.bluff:
             for row in self.comboRows:
                 if row.combo == combo:
                     row.action = 'b'
-                    row.update()
                     break
         for combo in self.call:
             for row in self.comboRows:
                 if row.combo == combo:
                     row.action = 'c'
-                    row.update()
                     break
         for combo in self.noAction:
             for row in self.comboRows:
                 if row.combo == combo:
                     row.action = ''
-                    row.update()
                     break
-                
-    def mousePressEvent(self, e):
-        self.activateWindow()
+        for combo in self.lockedCombos:
+            for row in self.comboRows:
+                if combo == row.combo:
+                    row.locked = True
+                    break
+        
+    def sendUpdate(self):
+        '''Prepares and emits and UpdatePack'''
+        updatePack = UpdatePack()
+        updatePack.origin = self.origin.text()
+        updatePack.value = self.value
+        updatePack.bluff = self.bluff
+        updatePack.call = self.call
+        updatePack.noAction = self.noAction
+        updatePack.lockedCombos = self.lockedCombos
+        updatePack.startingCombos = self.comboList
+        
+        self.updateSignal.emit(updatePack)
         
 
 class ComboRow(QtWidgets.QWidget):
@@ -3394,6 +3510,7 @@ class ComboRow(QtWidgets.QWidget):
                 self.setLock()
             
             self.update()
+        super().mousePressEvent(e)
     
     def paintEvent(self, e):
         
