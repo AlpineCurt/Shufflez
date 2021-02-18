@@ -60,6 +60,7 @@ class PlayerWindow(QtWidgets.QWidget):
         layout = QtWidgets.QGridLayout()
         
         self.position = position
+        self.setWindowTitle('Shufflez Poker')
         
         '''Create ActionBuckets'''
         self.actionBuckets = ShufflezWidgets.ActionBuckets()

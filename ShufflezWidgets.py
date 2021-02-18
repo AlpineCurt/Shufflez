@@ -104,8 +104,8 @@ class RangeDisplay(QtWidgets.QWidget):
             self.bluff = updatePack.bluff
             self.call = updatePack.call
             self.lockedCombos = updatePack.lockedCombos            
-        elif len(updatePack.origin) <= 3:
-            '''This means it's an update from a single ComboRect ComboWindow'''
+        else:
+            '''This means it's an update from a single ComboWindow'''
             for combo in updatePack.value:
                 self.value.add(combo)
                 self.bluff.discard(combo)
@@ -1322,21 +1322,25 @@ class RangeStatsMain(QtWidgets.QWidget):
                         row.value.add(combo)
                         row.bluff.discard(combo)
                         row.call.discard(combo)
+                        row.noAction.discard(combo)
                         for row2 in row.secondary_StatsRows:
                             if combo in row2.combos:
                                 row2.value.add(combo)
                                 row2.bluff.discard(combo)
                                 row2.call.discard(combo)
+                                row2.noAction.discard(combo)
                 for row in self.drawing_hands.allRows:
                     if combo in row.combos:
                         row.value.add(combo)
                         row.bluff.discard(combo)
                         row.call.discard(combo)
+                        row.noAction.discard(combo)
                         for row2 in row.secondary_StatsRows:
                             if combo in row2.combos:
                                 row2.value.add(combo)
                                 row2.bluff.discard(combo)
                                 row2.call.discard(combo)
+                                row2.noAction.discard(combo)
         
         for combo in updatePack.bluff:
             '''Bluff Combos'''
@@ -1350,21 +1354,25 @@ class RangeStatsMain(QtWidgets.QWidget):
                         row.bluff.add(combo)
                         row.value.discard(combo)
                         row.call.discard(combo)
+                        row.noAction.discard(combo)
                         for row2 in row.secondary_StatsRows:
                             if combo in row2.combos:
                                 row2.bluff.add(combo)
                                 row2.value.discard(combo)
                                 row2.call.discard(combo)
+                                row2.noAction.discard(combo)
                 for row in self.drawing_hands.allRows:
                     if combo in row.combos:
                         row.bluff.add(combo)
                         row.value.discard(combo)
                         row.call.discard(combo)
+                        row.noAction.discard(combo)
                         for row2 in row.secondary_StatsRows:
                             if combo in row2.combos:
                                 row2.bluff.add(combo)
                                 row2.value.discard(combo)
                                 row2.call.discard(combo)
+                                row2.noAction.discard(combo)
         
         for combo in updatePack.call:
             '''Call Combos'''
