@@ -103,6 +103,7 @@ class RangeDisplay(QtWidgets.QWidget):
             self.value = updatePack.value
             self.bluff = updatePack.bluff
             self.call = updatePack.call
+            self.lockedCombos = updatePack.lockedCombos            
         elif len(updatePack.origin) <= 3:
             '''This means it's an update from a single ComboRect ComboWindow'''
             for combo in updatePack.value:
@@ -243,7 +244,8 @@ class RangeDisplay(QtWidgets.QWidget):
     
     def mouseReleaseEvent(self, e):
         self.selecting = False
-        self.sendUpdate()
+        if e.button() == Qt.LeftButton and self.rangeMatrix.mouseIsOn and not self.rangeMatrix.locked:
+            self.sendUpdate()
         super().mouseReleaseEvent(e)
     
     def sendUpdate(self):
@@ -261,13 +263,6 @@ class RangeDisplay(QtWidgets.QWidget):
         
         self.updateSignal.emit(updatePack)
     
-    #def updateFromComboWindow(self, updatePack):
-        #'''Updates internal action Sets'''
-        #for combo in updatePack.value:
-            #self.value.add(combo)
-            #self.bluff.discard(combo)
-            #self.
-    
     def update(self):
         
         '''Update RangeMatrix'''
@@ -276,6 +271,7 @@ class RangeDisplay(QtWidgets.QWidget):
         self.rangeMatrix.setBluff(self.bluff)
         self.rangeMatrix.setCall(self.call)
         self.rangeMatrix.setNoAction(self.noAction)
+        self.rangeMatrix.setLockedCombos(self.lockedCombos)
         self.rangeMatrix.update()
         
         '''Update RangeText'''
@@ -368,6 +364,8 @@ class RangeMatrix(QtWidgets.QWidget):
         '''Tracks if user is clicking and dragging to select comboRects'''
         self.selecting = False
         
+        self.mouseIsOn = False
+        
         '''Allows the user to select combos by clicking'''
         self.locked = False
         
@@ -376,6 +374,12 @@ class RangeMatrix(QtWidgets.QWidget):
     
     def __repr__(self):
         return 'RangeMatrix ' + self.position
+    
+    def enterEvent(self, e):
+        self.mouseIsOn = True
+        
+    def leaveEvent(self, e):
+        self.mouseIsOn = False
         
     def buildGrid(self, boxLen, gridref, offset):
         '''
@@ -474,21 +478,33 @@ class RangeMatrix(QtWidgets.QWidget):
         '''
         
         '''Set all to unlocked.'''
-        for combo in self.matrix:
-            for row in combo.comboWindow.comboRows:
-                row.locked = False
+        for comboRect in self.matrix:
+            comboRect.lockedCombos.clear()
         
-        '''Find and set locked status for each combo from lockedCombos'''
         for combo in lockedCombos:
-            for rect in self.matrix:
-                if combo in rect.comboList:
-                    for row in rect.comboWindow.comboRows:
-                        if row.combo == combo:
-                            row.locked = True
-                            row.update()
-                            rect.comboWindow.activateWindow()
-                            break
+            for comboRect in self.matrix:
+                if combo not in comboRect.comboList:
+                    continue
+                else:
+                    comboRect.lockedCombos.add(combo)
                     break
+        
+        #'''Set all to unlocked.'''
+        #for combo in self.matrix:
+            #for row in combo.comboWindow.comboRows:
+                #row.locked = False
+        
+        #'''Find and set locked status for each combo from lockedCombos'''
+        #for combo in lockedCombos:
+            #for rect in self.matrix:
+                #if combo in rect.comboList:
+                    #for row in rect.comboWindow.comboRows:
+                        #if row.combo == combo:
+                            #row.locked = True
+                            #row.update()
+                            #rect.comboWindow.activateWindow()
+                            #break
+                    #break
     
     def requestComboWindow(self, comboRect):
         '''Prepares and emits requestComboWindowSignal'''
@@ -1187,6 +1203,8 @@ class RangeStatsMain(QtWidgets.QWidget):
             self.receiveBoard(updatePack.board)
         elif updatePack.origin == 'RangeDisplay':
             self.receiveCombos([updatePack.value, updatePack.bluff, updatePack.call, updatePack.noAction])
+            self.startingCombos = updatePack.startingCombos
+            self.receiveLockedCombos(updatePack)
         elif updatePack.origin == 'StatsRow':
             self.receiveLockedCombos(updatePack)
             self.receiveComboActions(updatePack)
@@ -1287,7 +1305,6 @@ class RangeStatsMain(QtWidgets.QWidget):
     
     def receiveComboActions(self, updatePack):
         '''
-        actionList is a list of lists [value, bluff, call].
         This will go through every statsRow object within each RangeStats
         object and if the combo exists within that statsRow, the combo
         will be assigned to the correct action within that statsRow.
@@ -1426,16 +1443,19 @@ class RangeStatsMain(QtWidgets.QWidget):
         '''
         Slot for signal from StatsRow that sends a Set of combos to be locked.
         '''
-        self.lockedCombos = self.lockedCombos.union(updatePack.lockedCombos)
-        self.lockedCombos = self.lockedCombos.difference(updatePack.unlockedCombos)
-        for row in self.made_hands.allRows:
-            row.lockedCombos = self.lockedCombos.copy()
-            for row2 in row.secondary_StatsRows:
-                row2.lockedCombos = self.lockedCombos.copy()
-        for row in self.drawing_hands.allRows:
-            row.lockedCombos = self.lockedCombos.copy()
-            for row2 in row.secondary_StatsRows:
-                row2.lockedCombos = self.lockedCombos.copy()
+        if updatePack.origin == 'RangeDisplay':
+            self.lockedCombos = updatePack.lockedCombos
+        else:
+            self.lockedCombos = self.lockedCombos.union(updatePack.lockedCombos)
+            self.lockedCombos = self.lockedCombos.difference(updatePack.unlockedCombos)
+            for row in self.made_hands.allRows:
+                row.lockedCombos = self.lockedCombos.copy()
+                for row2 in row.secondary_StatsRows:
+                    row2.lockedCombos = self.lockedCombos.copy()
+            for row in self.drawing_hands.allRows:
+                row.lockedCombos = self.lockedCombos.copy()
+                for row2 in row.secondary_StatsRows:
+                    row2.lockedCombos = self.lockedCombos.copy()
     
     def clearActions(self):
         '''Clears action assignments for all StatsRows and sets all
@@ -2521,16 +2541,38 @@ class ActionBuckets(QtWidgets.QWidget):
             self.noAction = updatePack.noAction
         elif updatePack.origin == 'BoardDisplay':
             self.board = updatePack.board
+        else:
+            '''This means from ComboWindow'''
+            for combo in updatePack.value:
+                self.value.add(combo)
+                self.bluff.discard(combo)
+                self.call.discard(combo)
+                self.noAction.discard(combo)
+            for combo in updatePack.bluff:
+                self.value.discard(combo)
+                self.bluff.add(combo)
+                self.call.discard(combo)
+                self.noAction.discard(combo)
+            for combo in updatePack.call:
+                self.value.discard(combo)
+                self.bluff.discard(combo)
+                self.call.add(combo)
+                self.noAction.discard(combo)
+            for combo in updatePack.noAction:
+                self.value.discard(combo)
+                self.bluff.discard(combo)
+                self.call.discard(combo)
+                self.noAction.add(combo)            
         
         self.update()
     
     def update(self):
         
         '''Update Combo Numbers'''
-        self.value = ShCalc.removeBlockedCombos(self.value, self.board)
-        self.bluff = ShCalc.removeBlockedCombos(self.bluff, self.board)
-        self.call = ShCalc.removeBlockedCombos(self.call, self.board)
-        self.noAction = ShCalc.removeBlockedCombos(self.noAction, self.board)
+        self.value = set(ShCalc.removeBlockedCombos(self.value, self.board))
+        self.bluff = set(ShCalc.removeBlockedCombos(self.bluff, self.board))
+        self.call = set(ShCalc.removeBlockedCombos(self.call, self.board))
+        self.noAction = set(ShCalc.removeBlockedCombos(self.noAction, self.board))
         
         self.totalCombos = len(self.value) + len(self.bluff) + len(self.call) + len(self.noAction)
         
@@ -3222,27 +3264,30 @@ class ComboWindow(QtWidgets.QWidget):
     def clearActions(self):
         '''Sets all unlocked child ComboRows to noAction'''
         for row in self.comboRows:
-            row.clearAction()
-            self.value.discard(row.combo)
-            self.bluff.discard(row.combo)
-            self.call.discard(row.combo)
-            self.noAction.add(row.combo)
+            if not row.locked:
+                row.action = ''
+                self.value.discard(row.combo)
+                self.bluff.discard(row.combo)
+                self.call.discard(row.combo)
+                self.noAction.add(row.combo)
+                row.update()
     
     def onClearClick(self):
         '''Slot for Clear button signal'''
         self.clearActions()
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
     
     def onLockAllClick(self):
         '''Slot for Lock All button'''
         
         for row in self.comboRows:
-            if row.inRange:
-                row.locked = True
-                row.sendLocked.emit(row.combo)
+            row.locked = True
+            row.update()
+            self.lockedCombos.add(row.combo)
+            #if row.inRange:
+                #row.locked = True
+                #row.sendLocked.emit(row.combo)
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
     
     def onUnlockAllClick(self):
         '''Slot for Unlock All button'''
@@ -3253,8 +3298,7 @@ class ComboWindow(QtWidgets.QWidget):
                 row.sendUnlocked.emit(row.combo)
                 row.update()
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
-    
+        
     def onValueRemainClick(self):
         '''Slot for assign remaining to value button'''
         
@@ -3265,7 +3309,6 @@ class ComboWindow(QtWidgets.QWidget):
                 self.noAction.discard(row.combo)
                 row.update()
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
     
     def onBluffRemainClick(self):
         '''Slot for assign remaining to bluff button'''
@@ -3277,7 +3320,6 @@ class ComboWindow(QtWidgets.QWidget):
                 self.noAction.discard(row.combo)
                 row.update()
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
     
     def onCallRemainClick(self):
         '''Slot for assign remaining to call button'''
@@ -3289,13 +3331,11 @@ class ComboWindow(QtWidgets.QWidget):
                 self.noAction.discard(row.combo)
                 row.update()
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
         
     def receiveLockedFromRow(self, lockedCombo):
         '''Slot to respond to a child CombowRow sending a locked combo'''
         self.lockedCombos.add(lockedCombo)
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
     
     def receiveUnlockedFromRow(self, unlockedCombo):
         '''Slot to respond to a child ComboRow sending an unlocked combo'''
@@ -3348,7 +3388,32 @@ class ComboWindow(QtWidgets.QWidget):
                     self.noAction.add(action[0])
                     break
         self.sendUpdate()
-        #self.comboWindowClicked.emit(self.origin.text())
+    
+    def receiveComboActions(self, updatePack):
+        '''Updates any matching child ComboRows with action Sets from updatePack'''
+        
+        for row in self.comboRows:
+            if row.combo not in updatePack.startingCombos:
+                continue
+            else:
+                for combo in updatePack.value:
+                    if combo.text == row.combo.text:
+                        row.action = 'v'
+                for combo in updatePack.bluff:
+                    if combo.text == row.combo.text:
+                        row.action = 'b'
+                for combo in updatePack.call:
+                    if combo.text == row.combo.text:
+                        row.action = 'c'
+                for combo in updatePack.noAction:
+                    if combo.text == row.combo.text:
+                        row.action = ''
+                if row.combo in updatePack.lockedCombos:
+                    row.locked = True
+                else:
+                    row.locked = False
+        self.activateWindow()
+        self.update()
     
     def updateComboRows(self):
         '''Using its self value, bluff, call, noAction Sets, this updates
@@ -3379,6 +3444,7 @@ class ComboWindow(QtWidgets.QWidget):
                 if combo == row.combo:
                     row.locked = True
                     break
+        
         
     def sendUpdate(self):
         '''Prepares and emits and UpdatePack'''
@@ -3495,7 +3561,6 @@ class ComboRow(QtWidgets.QWidget):
         if self.locked or not self.inRange:
             return
         self.action = ''
-        #self.sendCombo.emit([[], [], [], [self.combo]])
         self.update()
     
     def mousePressEvent(self, e):
@@ -3573,13 +3638,12 @@ class ComboRow(QtWidgets.QWidget):
             painter.drawText(self.cardBrect, Qt.AlignCenter, self.combo.text[2:])
         
         '''Draw Lock Icon'''
-        if self.inRange:
-            if self.locked:
-                painter.drawPixmap(self.lockRect, self.lock)
-            else:
-                painter.setOpacity(.5)
-                painter.drawPixmap(self.lockRect, self.unlock)
-                painter.setOpacity(1.0)
+        if self.locked:
+            painter.drawPixmap(self.lockRect, self.lock)
+        else:
+            painter.setOpacity(.5)
+            painter.drawPixmap(self.lockRect, self.unlock)
+            painter.setOpacity(1.0)
         
         '''Draw ActionRects'''
         if self.inRange:
@@ -3770,6 +3834,7 @@ class UpdatePack():
         
         self.lockStatus = False
         self.preflopStatus = True
+        self.updateActionsOnly = False
         
         self.selectedAction = ''
         

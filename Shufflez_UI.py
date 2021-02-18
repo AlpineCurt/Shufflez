@@ -109,6 +109,8 @@ class PlayerWindow(QtWidgets.QWidget):
         elif updatePack.origin == 'RangeStatsMain':
             self.rangeDisplay.receiveUpdate(updatePack)
             self.actionBuckets.receiveUpdate(updatePack)
+        for window in self.comboWindows:
+            window.receiveComboActions(updatePack)
     
     def connectStatsRowSignals(self):
         '''After RangeStatsMain calculates made hands, each StatsRow requestComboWindow
@@ -116,8 +118,12 @@ class PlayerWindow(QtWidgets.QWidget):
         
         for row in self.rangeStatsDisplay.rangeStatsMain.made_hands.allRows:
             row.requestComboWindowSignal.connect(self.createComboWindow)
+            for row2 in row.secondary_StatsRows:
+                row2.requestComboWindowSignal.connect(self.createComboWindow)
         for row in self.rangeStatsDisplay.rangeStatsMain.drawing_hands.allRows:
             row.requestComboWindowSignal.connect(self.createComboWindow)
+            for row2 in row.secondary_StatsRows:
+                row2.requestComboWindowSignal.connect(self.createComboWindow)            
     
     def createComboWindow(self, updatePack):
         '''Slot when RangeMatrix or a StatsRow emits requestComboWindow signal'''
@@ -138,11 +144,17 @@ class PlayerWindow(QtWidgets.QWidget):
         if len(updatePack.origin) <= 3:
             '''This means it's from a ComboRect'''
             self.rangeDisplay.receiveUpdate(updatePack)
-            self.rangeDisplay.sendUpdate()
+            self.rangeStatsDisplay.rangeStatsMain.receiveComboActions(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveLockedCombos(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)
         else:
             '''This means it's from a StatsRow'''
-            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
-            self.rangeStatsDisplay.rangeStatsMain.sendUpdate()
+            self.rangeStatsDisplay.rangeStatsMain.receiveComboActions(updatePack)
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)
+        for window in self.comboWindows:
+            window.receiveComboActions(updatePack)
+        
             
     def deleteComboWindow(self, origin):
         '''Slot when a ComboWindow emits a closeSignal'''
