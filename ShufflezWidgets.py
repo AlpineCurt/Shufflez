@@ -85,51 +85,22 @@ class RangeDisplay(QtWidgets.QWidget):
     def receiveUpdate(self, updatePack):
         '''Handles updates from parent PlayerWindow'''
         
-        if updatePack.origin == 'ActionBuckets':
-            self.action = updatePack.selectedAction
-        elif updatePack.origin == 'BoardDisplay':
-            self.preflop = updatePack.preflopStatus
-        elif updatePack.origin == 'RangeStatsMain':
-            if len(updatePack.board) >= 3:
-                self.rangeMatrix.locked = True
-            else:
-                self.rangeMatrix.locked = False
-            
-            if len(updatePack.value) == 0 and len(updatePack.bluff) == 0 and len(updatePack.call) == 0:
-                self.noAction = self.startingCombos
-                self.rangeMatrix.locked = False
-            else:
-                self.noAction = updatePack.noAction
-            self.value = updatePack.value
-            self.bluff = updatePack.bluff
-            self.call = updatePack.call
-            self.lockedCombos = updatePack.lockedCombos            
+        self.startingCombos = updatePack.startingCombos.copy()
+        self.value = updatePack.value.copy()
+        self.bluff = updatePack.bluff.copy()
+        self.call = updatePack.call.copy()
+        self.noAction = updatePack.noAction.copy()
+        self.lockedCombos = updatePack.lockedCombos.copy()
+        self.action = updatePack.selectedAction
+        if len(updatePack.board) >= 3:
+            self.rangeMatrix.locked = True
         else:
-            '''This means it's an update from a single ComboWindow'''
-            for combo in updatePack.value:
-                self.value.add(combo)
-                self.bluff.discard(combo)
-                self.call.discard(combo)
-                self.noAction.discard(combo)
-            for combo in updatePack.bluff:
-                self.value.discard(combo)
-                self.bluff.add(combo)
-                self.call.discard(combo)
-                self.noAction.discard(combo)
-            for combo in updatePack.call:
-                self.value.discard(combo)
-                self.bluff.discard(combo)
-                self.call.add(combo)
-                self.noAction.discard(combo)
-            for combo in updatePack.noAction:
-                self.value.discard(combo)
-                self.bluff.discard(combo)
-                self.call.discard(combo)
-                self.noAction.add(combo)   
-            for combo in updatePack.startingCombos:
-                self.lockedCombos.discard(combo)
-            for combo in updatePack.lockedCombos:
-                self.lockedCombos.add(combo)
+            self.rangeMatrix.locked = False
+        if len(updatePack.value) == 0 and len(updatePack.bluff) == 0 and len(updatePack.call) == 0:
+            self.noAction = self.startingCombos.copy()
+            self.rangeMatrix.locked = False
+        else:
+            self.noAction = updatePack.noAction
             
         self.update()
     
@@ -733,7 +704,7 @@ class ComboRect(QtWidgets.QWidget):
 class RangeText(QtWidgets.QTextEdit):
     '''Basic text box for range as a string input/output. Needed to override keypress event.'''
     
-    enterPressed = QtCore.pyqtSignal(list)
+    enterPressed = QtCore.pyqtSignal(set)
     
     def __init__(self):
         super().__init__()
@@ -869,7 +840,7 @@ class RangeText(QtWidgets.QTextEdit):
 
     def rangeToList(self):
         '''
-        Converts user input range from text to a list of Combo objects.
+        Converts user input range from text to a Set of Combo objects.
         '''
         
         combo_list = []
@@ -906,10 +877,10 @@ class RangeText(QtWidgets.QTextEdit):
                     '''Anything left should be individual combos'''
                     self.single_combo_convert(i, combo_list)
             
-            return combo_list
+            return set(combo_list)
             
         except:
-            return []
+            return set()
     
     def rangeListToString(self, InputComboList):
         '''
@@ -1197,23 +1168,163 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.updateSignal.emit(updatePack)
     
     def receiveUpdate(self, updatePack):
-        '''Handles updates from parent PlayerWindow'''
+        '''Handles updates from parent PlayerWindow or child StatsRow'''
         
-        if updatePack.origin == 'BoardDisplay':
-            self.receiveBoard(updatePack.board)
-        elif updatePack.origin == 'RangeDisplay':
-            self.receiveCombos([updatePack.value, updatePack.bluff, updatePack.call, updatePack.noAction])
-            self.startingCombos = updatePack.startingCombos
-            self.receiveLockedCombos(updatePack)
+        if updatePack.origin == 'PlayerWindow':
+            if self.startingCombos == updatePack.startingCombos and self.board == updatePack.board:
+                '''Only updating action combos'''
+                self.value = updatePack.value
+                self.bluff = updatePack.bluff
+                self.call = updatePack.call
+                self.noAction = updatePack.noAction
+                self.lockedCombos = updatePack.lockedCombos
+            else:
+                '''recalculating and assigning action combos (if any to assign)'''
+                self.startingCombos = updatePack.startingCombos
+                self.value = updatePack.value
+                self.bluff = updatePack.bluff
+                self.call = updatePack.call
+                self.noAction = updatePack.noAction
+                self.lockedCombos = updatePack.lockedCombos
+                self.board = updatePack.board
+                
+                self.calculateStats()
+            self.setComboActions()
         elif updatePack.origin == 'StatsRow':
-            self.receiveLockedCombos(updatePack)
-            self.receiveComboActions(updatePack)
-        else:
-            '''This should be from a StatsRow ComboWindow update'''
             self.receiveLockedCombos(updatePack)
             self.receiveComboActions(updatePack)
         
         self.update()
+    
+    def calculateStats(self):
+        '''Removes blocked combos and calculates made and drawing hand stats'''
+        
+        '''Remove Blocked Combos'''
+        combos = ShCalc.removeBlockedCombos(self.startingCombos, self.board)
+        self.noAction = set(ShCalc.removeBlockedCombos(self.noAction, self.board))
+        
+        '''Calculate Stats'''
+        self.made_hands.calc_made_hands(combos, self.board)
+        self.drawing_hands.calc_drawing_hands(combos, self.board)
+        self.made_hands.update()
+        self.drawing_hands.update()
+        self.connectStatsRowSignals()
+    
+    def setComboActions(self):
+        '''Updates all child StatsRows with self's comboActions'''
+        
+        for combo in self.value:
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    row.value.add(combo)
+                    row.bluff.discard(combo)
+                    row.call.discard(combo)
+                    row.noAction.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            row2.value.add(combo)
+                            row2.bluff.discard(combo)
+                            row2.call.discard(combo)
+                            row2.noAction.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    row.value.add(combo)
+                    row.bluff.discard(combo)
+                    row.call.discard(combo)
+                    row.noAction.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            row2.value.add(combo)
+                            row2.bluff.discard(combo)
+                            row2.call.discard(combo)
+                            row2.noAction.discard(combo)
+        
+        for combo in self.bluff:
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    row.bluff.add(combo)
+                    row.value.discard(combo)
+                    row.call.discard(combo)
+                    row.noAction.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            row2.bluff.add(combo)
+                            row2.value.discard(combo)
+                            row2.call.discard(combo)
+                            row2.noAction.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    row.bluff.add(combo)
+                    row.value.discard(combo)
+                    row.call.discard(combo)
+                    row.noAction.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            row2.bluff.add(combo)
+                            row2.value.discard(combo)
+                            row2.call.discard(combo)
+                            row2.noAction.discard(combo)
+        
+        for combo in self.call:
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.call:
+                        row.call.add(combo)
+                        row.value.discard(combo)
+                        row.bluff.discard(combo)
+                        row.noAction.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.call:
+                                row2.call.add(combo)
+                                row2.value.discard(combo)
+                                row2.bluff.discard(combo)
+                                row2.noAction.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.call:
+                        row.call.add(combo)
+                        row.value.discard(combo)
+                        row.bluff.discard(combo)
+                        row.noAction.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.call:
+                                row2.call.add(combo)
+                                row2.value.discard(combo)
+                                row2.bluff.discard(combo)
+                                row2.noAction.discard(combo)
+        
+        for combo in self.noAction:
+            for row in self.made_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.noAction:
+                        row.noAction.add(combo)
+                        row.value.discard(combo)
+                        row.bluff.discard(combo)
+                        row.call.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.noAction:
+                                row2.noAction.add(combo)
+                                row2.value.discard(combo)
+                                row2.bluff.discard(combo)
+                                row2.call.discard(combo)
+            for row in self.drawing_hands.allRows:
+                if combo in row.combos:
+                    if combo not in row.noAction:
+                        row.noAction.add(combo)
+                        row.value.discard(combo)
+                        row.bluff.discard(combo)
+                        row.call.discard(combo)
+                    for row2 in row.secondary_StatsRows:
+                        if combo in row2.combos:
+                            if combo not in row2.noAction:
+                                row2.noAction.add(combo)
+                                row2.value.discard(combo)
+                                row2.bluff.discard(combo)
+                                row2.call.discard(combo)
+        
         
     def connectStatsRowSignals(self):
         '''Used after calculating made and/or drawing hands to
@@ -1310,38 +1421,145 @@ class RangeStatsMain(QtWidgets.QWidget):
         will be assigned to the correct action within that statsRow.
         '''
         
+        #for combo in updatePack.value:
+            #'''Value combos'''
+            #if combo not in self.lockedCombos:
+                #self.value.add(combo)
+                #self.bluff.discard(combo)
+                #self.call.discard(combo)
+                #self.noAction.discard(combo)
+                #for row in self.made_hands.allRows:
+                    #if combo in row.combos:
+                        #row.value.add(combo)
+                        #row.bluff.discard(combo)
+                        #row.call.discard(combo)
+                        #row.noAction.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #row2.value.add(combo)
+                                #row2.bluff.discard(combo)
+                                #row2.call.discard(combo)
+                                #row2.noAction.discard(combo)
+                #for row in self.drawing_hands.allRows:
+                    #if combo in row.combos:
+                        #row.value.add(combo)
+                        #row.bluff.discard(combo)
+                        #row.call.discard(combo)
+                        #row.noAction.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #row2.value.add(combo)
+                                #row2.bluff.discard(combo)
+                                #row2.call.discard(combo)
+                                #row2.noAction.discard(combo)
+        
+        #for combo in updatePack.bluff:
+            #'''Bluff Combos'''
+            #if combo not in self.lockedCombos:
+                #self.bluff.add(combo)
+                #self.value.discard(combo)
+                #self.call.discard(combo)
+                #self.noAction.discard(combo)
+                #for row in self.made_hands.allRows:
+                    #if combo in row.combos:
+                        #row.bluff.add(combo)
+                        #row.value.discard(combo)
+                        #row.call.discard(combo)
+                        #row.noAction.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #row2.bluff.add(combo)
+                                #row2.value.discard(combo)
+                                #row2.call.discard(combo)
+                                #row2.noAction.discard(combo)
+                #for row in self.drawing_hands.allRows:
+                    #if combo in row.combos:
+                        #row.bluff.add(combo)
+                        #row.value.discard(combo)
+                        #row.call.discard(combo)
+                        #row.noAction.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #row2.bluff.add(combo)
+                                #row2.value.discard(combo)
+                                #row2.call.discard(combo)
+                                #row2.noAction.discard(combo)
+        
+        #for combo in updatePack.call:
+            #'''Call Combos'''
+            #if combo not in self.lockedCombos:
+                #self.call.add(combo)
+                #self.value.discard(combo)
+                #self.bluff.discard(combo)
+                #self.noAction.discard(combo)
+                #for row in self.made_hands.allRows:
+                    #if combo in row.combos:
+                        #if combo not in row.call:
+                            #row.call.add(combo)
+                        #row.value.discard(combo)
+                        #row.bluff.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #if combo not in row2.call:
+                                    #row2.call.add(combo)
+                                #row2.value.discard(combo)
+                                #row2.bluff.discard(combo)
+                #for row in self.drawing_hands.allRows:
+                    #if combo in row.combos:
+                        #if combo not in row.call:
+                            #row.call.add(combo)
+                        #row.value.discard(combo)
+                        #row.bluff.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #if combo not in row2.call:
+                                    #row2.call.add(combo)
+                                #row2.value.discard(combo)
+                                #row2.bluff.discard(combo)
+        
+        #for combo in updatePack.noAction:
+            #'''noAction combos'''
+            #if combo not in self.lockedCombos:
+                #self.noAction.add(combo)
+                #self.value.discard(combo)
+                #self.bluff.discard(combo)
+                #self.call.discard(combo)
+                #for row in self.made_hands.allRows:
+                    #if combo in row.combos:
+                        #if combo not in row.noAction:
+                            #row.noAction.add(combo)
+                        #row.value.discard(combo)
+                        #row.bluff.discard(combo)
+                        #row.call.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #if combo not in row2.noAction:
+                                    #row2.noAction.add(combo)
+                                #row2.value.discard(combo)
+                                #row2.bluff.discard(combo)
+                                #row2.call.discard(combo)
+                #for row in self.drawing_hands.allRows:
+                    #if combo in row.combos:
+                        #if combo not in row.noAction:
+                            #row.noAction.add(combo)
+                        #row.value.discard(combo)
+                        #row.bluff.discard(combo)
+                        #row.call.discard(combo)
+                        #for row2 in row.secondary_StatsRows:
+                            #if combo in row2.combos:
+                                #if combo not in row2.noAction:
+                                    #row2.noAction.add(combo)
+                                #row2.value.discard(combo)
+                                #row2.bluff.discard(combo)
+                                #row2.call.discard(combo)
+        
         for combo in updatePack.value:
             '''Value combos'''
             if combo not in self.lockedCombos:
                 self.value.add(combo)
                 self.bluff.discard(combo)
                 self.call.discard(combo)
-                self.noAction.discard(combo)
-                for row in self.made_hands.allRows:
-                    if combo in row.combos:
-                        row.value.add(combo)
-                        row.bluff.discard(combo)
-                        row.call.discard(combo)
-                        row.noAction.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                row2.value.add(combo)
-                                row2.bluff.discard(combo)
-                                row2.call.discard(combo)
-                                row2.noAction.discard(combo)
-                for row in self.drawing_hands.allRows:
-                    if combo in row.combos:
-                        row.value.add(combo)
-                        row.bluff.discard(combo)
-                        row.call.discard(combo)
-                        row.noAction.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                row2.value.add(combo)
-                                row2.bluff.discard(combo)
-                                row2.call.discard(combo)
-                                row2.noAction.discard(combo)
-        
+                self.noAction.discard(combo)        
         for combo in updatePack.bluff:
             '''Bluff Combos'''
             if combo not in self.lockedCombos:
@@ -1349,31 +1567,6 @@ class RangeStatsMain(QtWidgets.QWidget):
                 self.value.discard(combo)
                 self.call.discard(combo)
                 self.noAction.discard(combo)
-                for row in self.made_hands.allRows:
-                    if combo in row.combos:
-                        row.bluff.add(combo)
-                        row.value.discard(combo)
-                        row.call.discard(combo)
-                        row.noAction.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                row2.bluff.add(combo)
-                                row2.value.discard(combo)
-                                row2.call.discard(combo)
-                                row2.noAction.discard(combo)
-                for row in self.drawing_hands.allRows:
-                    if combo in row.combos:
-                        row.bluff.add(combo)
-                        row.value.discard(combo)
-                        row.call.discard(combo)
-                        row.noAction.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                row2.bluff.add(combo)
-                                row2.value.discard(combo)
-                                row2.call.discard(combo)
-                                row2.noAction.discard(combo)
-        
         for combo in updatePack.call:
             '''Call Combos'''
             if combo not in self.lockedCombos:
@@ -1381,31 +1574,6 @@ class RangeStatsMain(QtWidgets.QWidget):
                 self.value.discard(combo)
                 self.bluff.discard(combo)
                 self.noAction.discard(combo)
-                for row in self.made_hands.allRows:
-                    if combo in row.combos:
-                        if combo not in row.call:
-                            row.call.add(combo)
-                        row.value.discard(combo)
-                        row.bluff.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                if combo not in row2.call:
-                                    row2.call.add(combo)
-                                row2.value.discard(combo)
-                                row2.bluff.discard(combo)
-                for row in self.drawing_hands.allRows:
-                    if combo in row.combos:
-                        if combo not in row.call:
-                            row.call.add(combo)
-                        row.value.discard(combo)
-                        row.bluff.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                if combo not in row2.call:
-                                    row2.call.add(combo)
-                                row2.value.discard(combo)
-                                row2.bluff.discard(combo)
-        
         for combo in updatePack.noAction:
             '''noAction combos'''
             if combo not in self.lockedCombos:
@@ -1413,34 +1581,10 @@ class RangeStatsMain(QtWidgets.QWidget):
                 self.value.discard(combo)
                 self.bluff.discard(combo)
                 self.call.discard(combo)
-                for row in self.made_hands.allRows:
-                    if combo in row.combos:
-                        if combo not in row.noAction:
-                            row.noAction.add(combo)
-                        row.value.discard(combo)
-                        row.bluff.discard(combo)
-                        row.call.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                if combo not in row2.noAction:
-                                    row2.noAction.add(combo)
-                                row2.value.discard(combo)
-                                row2.bluff.discard(combo)
-                                row2.call.discard(combo)
-                for row in self.drawing_hands.allRows:
-                    if combo in row.combos:
-                        if combo not in row.noAction:
-                            row.noAction.add(combo)
-                        row.value.discard(combo)
-                        row.bluff.discard(combo)
-                        row.call.discard(combo)
-                        for row2 in row.secondary_StatsRows:
-                            if combo in row2.combos:
-                                if combo not in row2.noAction:
-                                    row2.noAction.add(combo)
-                                row2.value.discard(combo)
-                                row2.bluff.discard(combo)
-                                row2.call.discard(combo)
+                
+        ### LEFT OFF HERE.  TEST THIS. ###
+        
+        self.setComboActions()
         
         if updatePack.origin == 'StatsRow':
             self.sendUpdate()
@@ -1448,9 +1592,7 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.update()
                 
     def receiveLockedCombos(self, updatePack):
-        '''
-        Slot for signal from StatsRow that sends a Set of combos to be locked.
-        '''
+        '''Updates each StatsRow's lockedCombos'''
         if updatePack.origin == 'RangeDisplay':
             self.lockedCombos = updatePack.lockedCombos
         else:
@@ -2525,6 +2667,10 @@ class ActionBuckets(QtWidgets.QWidget):
         updatePack = UpdatePack()
         
         updatePack.origin = 'ActionBuckets'
+        updatePack.value = self.value.copy()
+        updatePack.bluff = self.bluff.copy()
+        updatePack.call = self.call.copy()
+        updatePack.noAction = self.noAction.copy()
         
         if self.valueButton.selected:
             updatePack.selectedAction = 'value'
@@ -2542,11 +2688,17 @@ class ActionBuckets(QtWidgets.QWidget):
     def receiveUpdate(self, updatePack):
         '''Handles any updates from parent PlayerWindow'''
         
-        if updatePack.origin == 'RangeDisplay' or updatePack.origin == 'RangeStatsMain':
-            self.value = updatePack.value
-            self.bluff = updatePack.bluff
-            self.call = updatePack.call
-            self.noAction = updatePack.noAction
+        self.value = updatePack.value.copy()
+        self.bluff = updatePack.bluff.copy()
+        self.call = updatePack.call.copy()
+        self.noAction = updatePack.noAction.copy()
+        self.board = updatePack.board.copy()
+        
+        """if updatePack.origin == 'RangeDisplay' or updatePack.origin == 'RangeStatsMain':
+            self.value = updatePack.value.copy()
+            self.bluff = updatePack.bluff.copy()
+            self.call = updatePack.call.copy()
+            self.noAction = updatePack.noAction.copy()
         elif updatePack.origin == 'BoardDisplay':
             self.board = updatePack.board
         else:
@@ -2570,7 +2722,7 @@ class ActionBuckets(QtWidgets.QWidget):
                 self.value.discard(combo)
                 self.bluff.discard(combo)
                 self.call.discard(combo)
-                self.noAction.add(combo)            
+                self.noAction.add(combo)       """     
         
         self.update()
     
@@ -3292,19 +3444,15 @@ class ComboWindow(QtWidgets.QWidget):
             row.locked = True
             row.update()
             self.lockedCombos.add(row.combo)
-            #if row.inRange:
-                #row.locked = True
-                #row.sendLocked.emit(row.combo)
         self.sendUpdate()
     
     def onUnlockAllClick(self):
         '''Slot for Unlock All button'''
         
         for row in self.comboRows:
-            if row.inRange:
-                row.locked = False
-                row.sendUnlocked.emit(row.combo)
-                row.update()
+            row.locked = False
+            row.update()
+            self.lockedCombos.discard(row.combo)
         self.sendUpdate()
         
     def onValueRemainClick(self):
@@ -3457,7 +3605,7 @@ class ComboWindow(QtWidgets.QWidget):
     def sendUpdate(self):
         '''Prepares and emits and UpdatePack'''
         updatePack = UpdatePack()
-        updatePack.origin = self.origin.text()
+        updatePack.origin = 'ComboWindow'
         updatePack.value = self.value
         updatePack.bluff = self.bluff
         updatePack.call = self.call
@@ -3851,3 +3999,18 @@ class UpdatePack():
     def __repr__(self):
         text = 'UpdatePack from ' + self.origin
         return text
+    
+    def test_pass(self):
+        '''Makes sure it's own attributes are valid.  Will return False if anything is wrong,
+        otherwise will return True'''
+        
+        if not self.value.issubset(self.startingCombos):
+            return False
+        if not self.bluff.issubset(self.startingCombos):
+            return False
+        if not self.call.issubset(self.startingCombos):
+            return False
+        if not self.noAction.issubset(self.startingCombos):
+            return False
+        
+        return True
