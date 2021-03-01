@@ -155,7 +155,9 @@ class PlayerWindow(QtWidgets.QWidget):
         '''Handles update signals from child Widgets'''
         
         '''Test updatePack for validity'''
-        
+        if not updatePack.test_pass:
+            print('Error in updatePack')
+            return
         
         if len(updatePack.startingCombos) == 0 or updatePack.startingCombos != self.startingCombos:
             '''If we're recalculating RangeStats, we'll need to reconnect the signals of each StatsRow'''
