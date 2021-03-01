@@ -722,20 +722,24 @@ class RangeText(QtWidgets.QTextEdit):
         
         self.text = ''
     
-    def pocket_pair_convert(self, pp_range, combo_list):
+    @staticmethod
+    def pocket_pair_convert(pp_range, combo_list):
         '''Appends to combo_list a Combo object for every combo in
         a pocket pair range.
         Used by rangeToList'''
+        
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                      "9", "T", "J", "Q", "K", "A"]        
         
         '''checks if listed as XX+ and sets upper limit as Aces (12)'''
         if pp_range[-1] == "+":
             
             upper_limit = 12
-            lower_limit = self.rank_value.index(pp_range[0])
+            lower_limit = rank_value.index(pp_range[0])
         
         else:
-            limit1 = self.rank_value.index(pp_range[0])   # hand rank of first listing
-            limit2 = self.rank_value.index(pp_range[-1])  # hand rank of second listing
+            limit1 = rank_value.index(pp_range[0])   # hand rank of first listing
+            limit2 = rank_value.index(pp_range[-1])  # hand rank of second listing
             
             upper_limit = max(limit1, limit2)
             lower_limit = min(limit1, limit2)
@@ -751,28 +755,32 @@ class RangeText(QtWidgets.QTextEdit):
             
             upper_limit -= 1
     
-    def suited_convert(self, suited_range, combo_list):
+    @staticmethod
+    def suited_convert(suited_range, combo_list):
         '''Appends to combo_list a Combo object for every combo
         in a suited combo range
         Used by rangeToList'''
         
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                              "9", "T", "J", "Q", "K", "A"]        
+        
         if suited_range[-1] == "+":
             '''checks if listed as + and sets upper limit'''
             
-            upper_limit = self.rank_value.index(suited_range[0]) - 1
-            lower_limit = self.rank_value.index(suited_range[1])
+            upper_limit = rank_value.index(suited_range[0]) - 1
+            lower_limit = rank_value.index(suited_range[1])
             
         elif len(suited_range) == 3:
             '''Individual suited listing'''
             
-            upper_limit = self.rank_value.index(suited_range[1])
-            lower_limit = self.rank_value.index(suited_range[1])      
+            upper_limit = rank_value.index(suited_range[1])
+            lower_limit = rank_value.index(suited_range[1])      
                 
         else:
             '''These should be suited ranges'''
             
-            limit1 = self.rank_value.index(suited_range[1])   # hand rank of first listing
-            limit2 = self.rank_value.index(suited_range[-2])  # hand rank of second listing
+            limit1 = rank_value.index(suited_range[1])   # hand rank of first listing
+            limit2 = rank_value.index(suited_range[-2])  # hand rank of second listing
             
             upper_limit = max(limit1, limit2)
             lower_limit = min(limit1, limit2)
@@ -780,7 +788,7 @@ class RangeText(QtWidgets.QTextEdit):
         while upper_limit >= lower_limit:
             '''Go through each card rank in range and create the four suited combos'''
                         
-            card1 = self.rank_value.index(suited_range[0])
+            card1 = rank_value.index(suited_range[0])
             card2 = upper_limit
             
             suited_combos = [[0, 0], [1, 1], [2, 2], [3, 3]]
@@ -789,29 +797,33 @@ class RangeText(QtWidgets.QTextEdit):
                 combo_list.append(Combo([card1, combo[0]], [card2, combo[1]]))
     
             upper_limit -= 1
-            
-    def offsuit_convert(self, offsuit_range, combo_list):
+    
+    @staticmethod        
+    def offsuit_convert(offsuit_range, combo_list):
         '''Appends to combo_list a Combo object for every combo
         in a offsuit combo range
         Used by rangeToList'''
         
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                              "9", "T", "J", "Q", "K", "A"]        
+        
         if offsuit_range[-1] == "+":
             '''checks if listed as + and sets upper limit'''
             
-            upper_limit = self.rank_value.index(offsuit_range[0]) - 1
-            lower_limit = self.rank_value.index(offsuit_range[1])
+            upper_limit = rank_value.index(offsuit_range[0]) - 1
+            lower_limit = rank_value.index(offsuit_range[1])
             
         elif len(offsuit_range) == 3:
             '''Individual suited listing'''
             
-            upper_limit = self.rank_value.index(offsuit_range[1])
-            lower_limit = self.rank_value.index(offsuit_range[1])      
+            upper_limit = rank_value.index(offsuit_range[1])
+            lower_limit = rank_value.index(offsuit_range[1])      
                 
         else:
             '''These should be suited ranges'''
             
-            limit1 = self.rank_value.index(offsuit_range[1])   # hand rank of first listing
-            limit2 = self.rank_value.index(offsuit_range[-2])  # hand rank of second listing
+            limit1 = rank_value.index(offsuit_range[1])   # hand rank of first listing
+            limit2 = rank_value.index(offsuit_range[-2])  # hand rank of second listing
             
             upper_limit = max(limit1, limit2)
             lower_limit = min(limit1, limit2)
@@ -819,7 +831,7 @@ class RangeText(QtWidgets.QTextEdit):
         while upper_limit >= lower_limit:
             '''Go through each card rank in range and create the four suited combos'''
                         
-            card1 = self.rank_value.index(offsuit_range[0])
+            card1 = rank_value.index(offsuit_range[0])
             card2 = upper_limit
             
             offsuit_combos = [[0, 2], [0, 1], [0, 3], [2, 1], [2, 3], [1, 3],
@@ -830,15 +842,21 @@ class RangeText(QtWidgets.QTextEdit):
     
             upper_limit -= 1
     
-    def single_combo_convert(self, combo, combo_list):
+    @staticmethod
+    def single_combo_convert(combo, combo_list):
         '''Converts a single combo string into Combo Object.'''
         
-        card1 = [self.rank_value.index(combo[0]), self.suit_value.index(combo[1])]
-        card2 = [self.rank_value.index(combo[2]), self.suit_value.index(combo[3])]
+        rank_value = ["2", "3", "4", "5", "6", "7", "8",
+                              "9", "T", "J", "Q", "K", "A"]
+        suit_value = ['h', 'd', 'c', 's']
+        
+        card1 = [rank_value.index(combo[0]), suit_value.index(combo[1])]
+        card2 = [rank_value.index(combo[2]), suit_value.index(combo[3])]
         
         combo_list.append(Combo(card1, card2))
-
-    def rangeToList(self):
+        
+    @staticmethod
+    def rangeToList(rangeString):
         '''
         Converts user input range from text to a Set of Combo objects.
         '''
@@ -849,7 +867,7 @@ class RangeText(QtWidgets.QTextEdit):
         try:
             
             '''Remove commas and spaces and turn into a list'''
-            input_range = self.text.split(',')
+            input_range = rangeString.split(',')
             working_range = []
             
             for i in input_range:
@@ -863,19 +881,19 @@ class RangeText(QtWidgets.QTextEdit):
                 
                 if i[0] == i[1]:
                     '''Checks if pocket pair'''
-                    self.pocket_pair_convert(i, combo_list)
+                    RangeText.pocket_pair_convert(i, combo_list)
                 
                 elif "o" in i:
                     '''Checks if offsuit item'''
-                    self.offsuit_convert(i, combo_list)
+                    RangeText.offsuit_convert(i, combo_list)
                 
                 elif i[2] == "s":
                     '''Checks if suited item'''
-                    self.suited_convert(i, combo_list)
+                    RangeText.suited_convert(i, combo_list)
                 
                 else:
                     '''Anything left should be individual combos'''
-                    self.single_combo_convert(i, combo_list)
+                    RangeText.single_combo_convert(i, combo_list)
             
             return set(combo_list)
             
@@ -1084,7 +1102,7 @@ class RangeText(QtWidgets.QTextEdit):
     def keyPressEvent(self, e):
         if e.key() == 16777220:
             self.text = self.toPlainText()
-            range_list = self.rangeToList()
+            range_list = self.rangeToList(self.text)
             self.enterPressed.emit(range_list)
         else:
             super().keyPressEvent(e)
@@ -4004,13 +4022,41 @@ class UpdatePack():
         '''Makes sure it's own attributes are valid.  Will return False if anything is wrong,
         otherwise will return True'''
         
+        '''None of the actions should contain combos not in startingCombos'''
         if not self.value.issubset(self.startingCombos):
+            print('Value range has combos not in startingCombos')
             return False
         if not self.bluff.issubset(self.startingCombos):
+            print('Bluff range has combos not in startingCombos')
             return False
         if not self.call.issubset(self.startingCombos):
+            print('Call range has combos not in startingCombos')
             return False
         if not self.noAction.issubset(self.startingCombos):
+            print('noAction range has combos not in startingCombos')
+            return False
+        if not self.value | self.bluff | self.call | self.noAction == self.startingCombos:
+            print('Value, Bluff, Call, and noAction does not add up to startingCombos')
+            return False
+        
+        '''Combos can belong to only one action'''
+        if bool(self.value & self.bluff):
+            print('Value and bluff share combos: ', self.value & self.bluff)
+            return False
+        if bool(self.value & self.call):
+            print('Value and call share combos: ', self.value & self.call)
+            return False
+        if bool(self.value & self.noAction):
+            print('Value and noAction share combos: ', self.value & self.noAction)
+            return False
+        if bool(self.bluff & self.call):
+            print('Call and bluff share combos: ', self.call & self.bluff)
+            return False
+        if bool(self.bluff & self.noAction):
+            print('noAction and bluff share combos: ', self.noAction & self.bluff)
+            return False
+        if bool(self.call & self.noAction):
+            print('Call and noAction share combos: ', self.call & self.noAction)
             return False
         
         return True
