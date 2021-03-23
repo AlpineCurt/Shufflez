@@ -665,6 +665,9 @@ class ComboRect(QtWidgets.QWidget):
         self.noAction = set()
         self.lockedCombos = set()
     
+    def __repr__(self):
+        return 'ComboRect ' + self.name
+    
     def buildCombos(self):
         '''
         Creates a list of Combo Objects that belong to the ComboRect.
@@ -2710,37 +2713,7 @@ class ActionBuckets(QtWidgets.QWidget):
         self.bluff = updatePack.bluff.copy()
         self.call = updatePack.call.copy()
         self.noAction = updatePack.noAction.copy()
-        self.board = updatePack.board.copy()
-        
-        """if updatePack.origin == 'RangeDisplay' or updatePack.origin == 'RangeStatsMain':
-            self.value = updatePack.value.copy()
-            self.bluff = updatePack.bluff.copy()
-            self.call = updatePack.call.copy()
-            self.noAction = updatePack.noAction.copy()
-        elif updatePack.origin == 'BoardDisplay':
-            self.board = updatePack.board
-        else:
-            '''This means from ComboWindow'''
-            for combo in updatePack.value:
-                self.value.add(combo)
-                self.bluff.discard(combo)
-                self.call.discard(combo)
-                self.noAction.discard(combo)
-            for combo in updatePack.bluff:
-                self.value.discard(combo)
-                self.bluff.add(combo)
-                self.call.discard(combo)
-                self.noAction.discard(combo)
-            for combo in updatePack.call:
-                self.value.discard(combo)
-                self.bluff.discard(combo)
-                self.call.add(combo)
-                self.noAction.discard(combo)
-            for combo in updatePack.noAction:
-                self.value.discard(combo)
-                self.bluff.discard(combo)
-                self.call.discard(combo)
-                self.noAction.add(combo)       """     
+        self.board = updatePack.board.copy() 
         
         self.update()
     
@@ -2760,18 +2733,23 @@ class ActionBuckets(QtWidgets.QWidget):
         
         '''Update Frequency Numbers'''
         if self.totalCombos != 0:
+            if len(self.board) < 3:
+                valueFreq = round(len(self.value) / 1326 * 100, 1)
+                bluffFreq = round(len(self.bluff) / 1326 * 100, 1)
+                callFreq = round(len(self.call) / 1326 * 100, 1)
+            else:
+                valueFreq = round(len(self.value) / self.totalCombos * 100, 1)
+                bluffFreq = round(len(self.bluff) / self.totalCombos * 100, 1)
+                callFreq = round(len(self.call) / self.totalCombos * 100, 1)
             
-            valueFreq = round(len(self.value) / self.totalCombos * 100, 1)
             if valueFreq.is_integer():
                 valueFreq = round(valueFreq)
             self.valFreqLabel.setText(str(valueFreq) + '%')
             
-            bluffFreq = round(len(self.bluff) / self.totalCombos * 100, 1)
             if bluffFreq.is_integer():
                 bluffFreq = round(bluffFreq)
             self.bluffFreqLabel.setText(str(bluffFreq) + '%')
             
-            callFreq = round(len(self.call) / self.totalCombos * 100, 1)
             if callFreq.is_integer():
                 callFreq = round(callFreq)
             self.callFreqLabel.setText(str(callFreq) + '%')
@@ -2833,11 +2811,14 @@ class ActionBuckets(QtWidgets.QWidget):
             noActionNumText = 'Unassigned Combos:  ' + noActionNum + ' (' + str(noActionFreq) + '%' + ')'
             self.noActionLabel.setText(noActionNumText)
             
-            totalCombosText = 'Total Combos:  ' + str(self.totalCombos)
+            totalCombosFreq = round(self.totalCombos / 1326 * 100, 1)
+            if totalCombosFreq.is_integer():
+                totalCombosFreq = round(totalCombosFreq)
+            totalCombosText = 'Total Combos:  ' + str(self.totalCombos) + ' (' + str(totalCombosFreq) + '%)'
             self.totalCombosLabel.setText(totalCombosText)
         else:
             self.noActionLabel.setText('Unassigned Combos:  0')
-            self.totalCombosLabel.setText('Total Combos:  0')
+            self.totalCombosLabel.setText('Total Combos:  0 (0%)')
         
         super().update()
 

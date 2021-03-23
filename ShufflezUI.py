@@ -235,9 +235,7 @@ class PlayerWindow(QtWidgets.QWidget):
         if self.lastUpdateFrom == 'ComboWindow':
             self.rangeDisplay.receiveUpdate(updatePack)
             self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
-            self.actionBuckets.receiveUpdate(updatePack)
-            for window in self.comboWindows:
-                window.receiveComboActions(updatePack)            
+            self.actionBuckets.receiveUpdate(updatePack)        
         elif self.lastUpdateFrom == 'RangeDisplay':
             self.actionBuckets.receiveUpdate(updatePack)
             self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
@@ -253,7 +251,13 @@ class PlayerWindow(QtWidgets.QWidget):
             self.connectStatsRowSignals()
         elif self.lastUpdateFrom == 'ActionBuckets':
             self.rangeDisplay.receiveUpdate(updatePack)
-        
+        else:
+            '''GameHistory Update'''
+            self.actionBuckets.receiveUpdate(updatePack)
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.connectStatsRowSignals()
+            
         for window in self.comboWindows:
             window.receiveComboActions(updatePack)
         
