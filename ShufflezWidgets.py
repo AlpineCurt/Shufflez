@@ -83,7 +83,7 @@ class RangeDisplay(QtWidgets.QWidget):
         return 'RangeDisplay ' + self.position
     
     def receiveUpdate(self, updatePack):
-        '''Handles updates from parent PlayerWindow'''
+        '''Handles updates from parent RangeWidgetMain'''
         
         self.startingCombos = updatePack.startingCombos.copy()
         self.value = updatePack.value.copy()
@@ -220,7 +220,7 @@ class RangeDisplay(QtWidgets.QWidget):
         super().mouseReleaseEvent(e)
     
     def sendUpdate(self):
-        '''Prepares UpdatePack object and emits signalUpdate'''
+        '''Prepares UpdatePack object and emits updateSignal'''
         
         updatePack = UpdatePack()
         
@@ -459,23 +459,6 @@ class RangeMatrix(QtWidgets.QWidget):
                 else:
                     comboRect.lockedCombos.add(combo)
                     break
-        
-        #'''Set all to unlocked.'''
-        #for combo in self.matrix:
-            #for row in combo.comboWindow.comboRows:
-                #row.locked = False
-        
-        #'''Find and set locked status for each combo from lockedCombos'''
-        #for combo in lockedCombos:
-            #for rect in self.matrix:
-                #if combo in rect.comboList:
-                    #for row in rect.comboWindow.comboRows:
-                        #if row.combo == combo:
-                            #row.locked = True
-                            #row.update()
-                            #rect.comboWindow.activateWindow()
-                            #break
-                    #break
     
     def requestComboWindow(self, comboRect):
         '''Prepares and emits requestComboWindowSignal'''
@@ -1189,9 +1172,9 @@ class RangeStatsMain(QtWidgets.QWidget):
         self.updateSignal.emit(updatePack)
     
     def receiveUpdate(self, updatePack):
-        '''Handles updates from parent PlayerWindow or child StatsRow'''
+        '''Handles updates from parent RangeWidgetMain or child StatsRow'''
         
-        if updatePack.origin == 'PlayerWindow':
+        if updatePack.origin == 'RangeWidgetMain':
             if self.startingCombos == updatePack.startingCombos and self.board == updatePack.board:
                 '''Only updating action combos'''
                 self.value = updatePack.value
@@ -2707,7 +2690,7 @@ class ActionBuckets(QtWidgets.QWidget):
         self.updateSignal.emit(updatePack)
     
     def receiveUpdate(self, updatePack):
-        '''Handles any updates from parent PlayerWindow'''
+        '''Handles any updates from parent RangeWidgetMain'''
         
         self.value = updatePack.value.copy()
         self.bluff = updatePack.bluff.copy()
@@ -2913,7 +2896,7 @@ class ActionButton(QtWidgets.QWidget):
 class BoardDisplay(QtWidgets.QWidget):
     '''
     Widget for selecting and displaying board cards.
-    Used in PlayerWindow Widget.
+    Used in RangeWidgetMain Widget.
     '''
     
     updateSignal = QtCore.pyqtSignal(object)
@@ -3255,6 +3238,219 @@ class BoardSelection(QtWidgets.QDialog):
             card = self.random_card()
             self.board.append(card)
             self.switchSelection.emit(card)
+
+class RangeWidgetMain(QtWidgets.QWidget):
+    
+    '''Single Player's range and stats display.
+    Contains:  range matrix, stats display, action buttons,
+    and board cards.'''
+    
+    def __init__(self, position=None):
+        super().__init__()
+        
+        layout = QtWidgets.QGridLayout()
+        
+        self.position = position
+        self.setWindowTitle('Shufflez Poker')
+        
+        self.value = set()
+        self.bluff = set()
+        self.call = set()
+        self.noAction = set()
+        self.lockedCombos = set()
+        self.startingCombos = set()
+        self.board = []
+        self.lockStatus = False
+        self.preflop = True  # Preflop condiditon determines labeling, and RangeStatsDisplay mode
+        self.statsRowSignalsConnected = False
+        self.selectedAction = ''
+        self.lastUpdateFrom = ''
+        
+        '''Create ActionBuckets'''
+        self.actionBuckets = ActionBuckets()
+        layout.addWidget(self.actionBuckets, 0, 0, Qt.AlignTop)
+        
+        '''Create RangeDisplay'''
+        self.rangeDisplay = RangeDisplay(self.position)
+        layout.addWidget(self.rangeDisplay, 1, 0, Qt.AlignCenter)
+        
+        '''Create RangeStatsDisplay'''
+        self.rangeStatsDisplay = RangeStatsDisplay(self.position)
+        self.rangeStatsDisplay.setMinimumSize(335, self.rangeDisplay.totalHeight)
+        self.rangeStatsDisplay.scrollArea.setFixedSize(330, self.rangeDisplay.totalHeight - 25)
+        layout.addWidget(self.rangeStatsDisplay, 1, 1, Qt.AlignTop)
+        
+        '''Create BoardDisplay'''
+        self.boardDisplay = BoardDisplay()
+        layout.addWidget(self.boardDisplay, 0, 1, Qt.AlignCenter)
+        
+        layout.setVerticalSpacing(0)
+        self.setLayout(layout)
+        
+        self.comboWindows = []
+        
+        '''Connect Signals and Slots'''
+        self.rangeDisplay.updateSignal.connect(self.receiveUpdate)
+        self.actionBuckets.updateSignal.connect(self.receiveUpdate)
+        self.boardDisplay.updateSignal.connect(self.receiveUpdate)
+        self.rangeStatsDisplay.rangeStatsMain.updateSignal.connect(self.receiveUpdate)
+        self.rangeDisplay.rangeMatrix.requestComboWindowSignal.connect(self.createComboWindow)  
+    
+    def updatePackOverwrite(self, updatePack):
+        '''self attributes will be replaced by updatePack'''
+        
+        self.lastUpdateFrom = updatePack.origin
+        
+        self.value = updatePack.value.copy()
+        self.bluff = updatePack.bluff.copy()
+        self.call = updatePack.call.copy()
+        self.noAction = updatePack.noAction.copy()
+        self.startingCombos = updatePack.startingCombos.copy()
+        self.lockedCombos = updatePack.lockedCombos.copy()
+        self.lockStatus = updatePack.lockStatus
+        self.preflop = updatePack.preflopStatus
+        self.selectedAction = updatePack.selectedAction
+    
+    def updatePackMerge(self, updatePack):
+        '''self attributes will be modified by updatePack
+        Primarily for updates from ComboWindows'''
+        
+        self.lastUpdateFrom = updatePack.origin
+        
+        for combo in updatePack.value:
+            self.value.add(combo)
+            self.bluff.discard(combo)
+            self.call.discard(combo)
+            self.noAction.discard(combo)
+        for combo in updatePack.bluff:
+            self.value.discard(combo)
+            self.bluff.add(combo)
+            self.call.discard(combo)
+            self.noAction.discard(combo)
+        for combo in updatePack.call:
+            self.value.discard(combo)
+            self.bluff.discard(combo)
+            self.call.add(combo)
+            self.noAction.discard(combo)
+        for combo in updatePack.noAction:
+            self.value.discard(combo)
+            self.bluff.discard(combo)
+            self.call.discard(combo)
+            self.noAction.add(combo)   
+        for combo in updatePack.startingCombos:
+            self.lockedCombos.discard(combo)
+        for combo in updatePack.lockedCombos:
+            self.lockedCombos.add(combo)
+    
+    def receiveUpdate(self, updatePack):
+        '''Handles update signals from child Widgets'''
+        
+        '''Test updatePack for validity'''
+        if not updatePack.test_pass:
+            print('Error in updatePack')
+            return
+        
+        if len(updatePack.startingCombos) == 0 or updatePack.startingCombos != self.startingCombos:
+            '''If we're recalculating RangeStats, we'll need to reconnect the signals of each StatsRow'''
+            self.statsRowSignalsConnected = False
+        
+        if updatePack.origin == 'ComboWindow':
+            self.updatePackMerge(updatePack)
+        elif updatePack.origin == 'BoardDisplay':
+            self.board = updatePack.board
+            self.lastUpdateFrom = updatePack.origin
+        elif updatePack.origin == 'ActionBuckets':
+            self.selectedAction = updatePack.selectedAction
+            self.lastUpdateFrom = updatePack.origin
+        else:
+            self.updatePackOverwrite(updatePack)
+        
+        self.update()
+    
+    def connectStatsRowSignals(self):
+        '''After RangeStatsMain calculates made hands, each StatsRow requestComboWindow
+        signal needs to be connected to createComboWindow'''
+        
+        if self.statsRowSignalsConnected:
+            return
+        
+        for row in self.rangeStatsDisplay.rangeStatsMain.made_hands.allRows:
+            row.requestComboWindowSignal.connect(self.createComboWindow)
+            for row2 in row.secondary_StatsRows:
+                row2.requestComboWindowSignal.connect(self.createComboWindow)
+        for row in self.rangeStatsDisplay.rangeStatsMain.drawing_hands.allRows:
+            row.requestComboWindowSignal.connect(self.createComboWindow)
+            for row2 in row.secondary_StatsRows:
+                row2.requestComboWindowSignal.connect(self.createComboWindow)
+        self.statsRowSignalsConnected = True
+    
+    def createComboWindow(self, updatePack):
+        '''Slot when RangeMatrix or a StatsRow emits requestComboWindow signal'''
+        
+        comboWindow = ComboWindow(self.position, updatePack)
+        
+        if comboWindow in self.comboWindows:
+            for comWin in self.comboWindows:
+                if comboWindow == comWin:
+                    comWin.show()
+        else:
+            self.comboWindows.append(comboWindow)
+            self.comboWindows[-1].closeSignal.connect(self.deleteComboWindow)
+            self.comboWindows[-1].updateSignal.connect(self.receiveUpdate)
+            
+    def deleteComboWindow(self, origin):
+        '''Slot when a ComboWindow emits a closeSignal'''
+        
+        for comboWindow in self.comboWindows:
+            if comboWindow == origin:
+                self.comboWindows.remove(comboWindow)
+                del comboWindow
+                break
+    
+    def update(self):
+        
+        updatePack = UpdatePack()
+        updatePack.origin = 'RangeWidgetMain'
+        updatePack.value = self.value
+        updatePack.bluff = self.bluff
+        updatePack.call = self.call
+        updatePack.noAction = self.noAction
+        updatePack.startingCombos = self.startingCombos
+        updatePack.lockedCombos = self.lockedCombos
+        updatePack.lockStatus = self.lockStatus
+        updatePack.preflopStatus = self.preflop
+        updatePack.selectedAction = self.selectedAction
+        updatePack.board = self.board
+        
+        '''Specifying which Widgets receive an update to avoid updating redundancy'''
+        if self.lastUpdateFrom == 'ComboWindow':
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)        
+        elif self.lastUpdateFrom == 'RangeDisplay':
+            self.actionBuckets.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.connectStatsRowSignals()
+        elif self.lastUpdateFrom == 'BoardDisplay':
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.connectStatsRowSignals()   
+        elif self.lastUpdateFrom == 'RangeStatsMain':
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.actionBuckets.receiveUpdate(updatePack)   
+            self.connectStatsRowSignals()
+        elif self.lastUpdateFrom == 'ActionBuckets':
+            self.rangeDisplay.receiveUpdate(updatePack)
+        else:
+            '''GameHistory Update'''
+            self.actionBuckets.receiveUpdate(updatePack)
+            self.rangeDisplay.receiveUpdate(updatePack)
+            self.rangeStatsDisplay.rangeStatsMain.receiveUpdate(updatePack)
+            self.connectStatsRowSignals()
+            
+        for window in self.comboWindows:
+            window.receiveComboActions(updatePack)
         
 """COMBO WINDOW and Related Classes"""
 
@@ -3821,7 +4017,108 @@ class ComboRow(QtWidgets.QWidget):
             painter.drawText(self.valueRect, Qt.AlignCenter, 'V')
             painter.drawText(self.bluffRect, Qt.AlignCenter, 'B')
             painter.drawText(self.callRect, Qt.AlignCenter, 'C')
+
+
+"""HandReplayer and related classes"""
+
+class HandReplayer(QtWidgets.QWidget):
+    '''Displays a Poker Table and each seat at it.  Used to gather user inputs
+    for the poker hand to review.'''
+    
+    def __init__(self):
+        super().__init__()
         
+        x, y = 1593, 1017  # pixel dimensions of window
+        scale = 1  # scales the above pixel dimensions
+        
+        scaled_width = round(scale * x, 0)
+        scaled_height = round(scale * y, 0)
+        size = QtCore.QSize(scaled_width, scaled_height)
+        
+        background = QtGui.QPixmap('poker_table.png')
+        background = background.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.table_png = QtWidgets.QLabel(self)
+        self.table_png.setPixmap(background)
+        self.table_png.move(0, 0)
+        
+        self.test_player = PlayerSetUp('BTN')
+        self.test_player.setParent(self)
+        self.test_player.move(50, 50)
+        
+        self.setFixedSize(scaled_width, scaled_height)
+        
+        
+class PlayerSetUp(QtWidgets.QWidget):
+    '''One Player at the HandReplayer table.  Where the user inputs info
+    about the player.'''
+    
+    def __init__(self, position):
+        super().__init__()
+        '''position parameter is a string'''
+        
+        width, height = 100, 100 # width and height of widget
+        margin = 3  # gap between edge and edges of internal widgets
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        '''Position label'''
+        posLabel = QtWidgets.QLabel(position)
+        posFont = QtGui.QFont()
+        posFont.setPixelSize(12)
+        posFont.setBold(True)
+        posLabel.setFont(posFont)
+        layout.addWidget(posLabel, Qt.AlignCenter)
+        
+        '''Starting Stack lineEdit'''
+        stackText = QtWidgets.QLineEdit()
+        stackText.setPlaceholderText('Starting Stack')
+        stackText.setFixedWidth(width - (margin * 2))
+        layout.addWidget(stackText, Qt.AlignLeft)
+        
+        '''Participant Check Box'''
+        participantCheckBox = QtWidgets.QCheckBox('Participant')
+        participantCheckBox.setMinimumSize(participantCheckBox.sizeHint())
+        layout.addWidget(participantCheckBox, Qt.AlignLeft)
+        
+        '''Hero Pos Check Box'''
+        heroCheckBox = QtWidgets.QCheckBox("Hero's Position")
+        heroCheckBox.setMinimumSize(heroCheckBox.sizeHint())
+        layout.addWidget(heroCheckBox, Qt.AlignLeft)
+        
+        '''Straddle lineEdit'''
+        straddleText = QtWidgets.QLineEdit()
+        straddleText.setPlaceholderText('Straddle/Blind')
+        straddleText.setFixedWidth(width - (margin * 2))
+        layout.addWidget(straddleText)
+        
+        '''Notes Text Box'''
+        notesTextBox = QtWidgets.QTextEdit()
+        notesTextBox.setPlaceholderText('Notes')
+        notesTextBox.setFixedWidth(width - (margin * 2))
+        notesTextBox.setFixedHeight(35)
+        layout.addWidget(notesTextBox)
+        
+        self.setLayout(layout)
+        
+        self.setFixedSize(self.sizeHint())
+        print(self.sizeHint())
+    
+    def paintEvent(self, e):
+        
+        painter = QtGui.QPainter(self)
+        
+        white = QtGui.QBrush()
+        white.setColor(QtGui.QColor(255, 255, 255))
+        white.setStyle(Qt.SolidPattern)
+        
+        '''Hole Cards'''
+        
+        '''Border'''
+        size = self.sizeHint()
+        rect = QtCore.QRect(0, 0, size.width(), size.height())
+        painter.fillRect(rect, white)
+        painter.drawRect(rect)
+
 
 """Data Storage and Range Info Transfer Objects"""
 
@@ -3881,7 +4178,7 @@ class Combo():
         cardB = card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
         return (cardA, cardB)
-    
+    """
     def getCardA(self, scale = 1):
         '''Returns a scaled QPixmap of CardA'''
         
@@ -3894,7 +4191,7 @@ class Combo():
         card_row = 117 * self.cardA[1]
         card = cards.copy(card_col + self.cardA[0], card_row + self.cardA[1], 81, 117)
         
-        return card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)  
+        return card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)"""
     
     def getComboRect(self):
         '''
