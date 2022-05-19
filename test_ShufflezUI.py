@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt
 
 app = QtWidgets.QApplication(sys.argv)
 
-class TestPlayerWindowReceiveUpdate(unittest.TestCase):
+class TestRangeWidgetMainReceiveUpdate(unittest.TestCase):
     
     def setUp(self):
         
@@ -20,7 +20,7 @@ class TestPlayerWindowReceiveUpdate(unittest.TestCase):
         noAction = 'AQo-ATo, KQo, Ad2d, Ac2c'  # 50 combos
         lockedCombos = 'JdJs, KhQh, Ad7d, AcQd, AcQh' # 5 combos
         
-        self.player = ShufflezUI.PlayerWindow()
+        self.player = ShufflezWidgets.RangeWidgetMain()
         
         self.updatePack = ShufflezWidgets.UpdatePack()
         self.updatePack.origin = ''
