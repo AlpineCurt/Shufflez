@@ -13,60 +13,40 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     Main program window
     
     This will contain File, Edit, etc.
-    Game logic and record goes here.
     Each player window is a child class of this main window.
     '''
     
     def __init__(self):
         super().__init__()
         
-        self.layout = MainLayout()
-        
-        self.resize(200, 100)
+        self.resize(1500, 800)
         self.move(100, 100)
+        self.setWindowTitle("Shufflez")
+        
+        self._createMenuBar()
+        self._createStatusBar()
+        
+        mdiArea = QtWidgets.QMdiArea()
+        mdiArea.addSubWindow(ShufflezWidgets.RangeWidgetMain())
+        mdiArea.addSubWindow(ShufflezWidgets.HandReplayer())
 
-        self.setCentralWidget(self.layout)
-
-
-class MainLayout(QtWidgets.QWidget):
-    '''Layout of MainWindow.  Widgets for game history will go here.'''
+        self.setCentralWidget(mdiArea)
     
-    def __init__(self):
-        super().__init__()
+    def _createMenuBar(self):
+        menuBar = QtWidgets.QMenuBar(self)
+        self.setMenuBar(menuBar)
         
-        layout = QtWidgets.QGridLayout()
-        layout.setSpacing(5)
+        fileMenu = QtWidgets.QMenu("&File", self)
+        menuBar.addMenu(fileMenu)
         
-        rangeWidgetMain_button = QtWidgets.QPushButton('RangeWidgetMain')
-        rangeWidgetMain_button.clicked.connect(self.onRangeWidgetMainButtonClick)
-        layout.addWidget(rangeWidgetMain_button, 0, 1)
+        menuBar.addMenu("&Edit")
         
-        handReplayer_button = QtWidgets.QPushButton('HandReplayer')
-        handReplayer_button.clicked.connect(self.onHandReplayerButtonClick)
-        layout.addWidget(handReplayer_button, 1, 1)
-        
-        playerSetUp_button = QtWidgets.QPushButton('PlayerSetUp')
-        playerSetUp_button.clicked.connect(self.onPlayerSetUpButtonClick)
-        layout.addWidget(playerSetUp_button, 2, 1)
-        
-        self.setLayout(layout)
-        
-    def onRangeWidgetMainButtonClick(self):
-        self.testRangeWidgetMain = ShufflezWidgets.RangeWidgetMain('UTG')
-        self.testRangeWidgetMain.show()
-    
-    def onHandReplayerButtonClick(self):
-        self.testHandReplayer = ShufflezWidgets.HandReplayer()
-        self.testHandReplayer.show()
-    
-    def onPlayerSetUpButtonClick(self):
-        self.testPlayerSetUp = ShufflezWidgets.PlayerSetUp('BTN')
-        self.testPlayerSetUp.show()
+    def _createStatusBar(self):
+        self.statusBar = self.statusBar()
 
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     ui = Ui_MainWindow()
-    ui.setWindowTitle('Shufflez')
     ui.show()
     sys.exit(app.exec_())

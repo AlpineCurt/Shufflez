@@ -1425,138 +1425,6 @@ class RangeStatsMain(QtWidgets.QWidget):
         will be assigned to the correct action within that statsRow.
         '''
         
-        #for combo in updatePack.value:
-            #'''Value combos'''
-            #if combo not in self.lockedCombos:
-                #self.value.add(combo)
-                #self.bluff.discard(combo)
-                #self.call.discard(combo)
-                #self.noAction.discard(combo)
-                #for row in self.made_hands.allRows:
-                    #if combo in row.combos:
-                        #row.value.add(combo)
-                        #row.bluff.discard(combo)
-                        #row.call.discard(combo)
-                        #row.noAction.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #row2.value.add(combo)
-                                #row2.bluff.discard(combo)
-                                #row2.call.discard(combo)
-                                #row2.noAction.discard(combo)
-                #for row in self.drawing_hands.allRows:
-                    #if combo in row.combos:
-                        #row.value.add(combo)
-                        #row.bluff.discard(combo)
-                        #row.call.discard(combo)
-                        #row.noAction.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #row2.value.add(combo)
-                                #row2.bluff.discard(combo)
-                                #row2.call.discard(combo)
-                                #row2.noAction.discard(combo)
-        
-        #for combo in updatePack.bluff:
-            #'''Bluff Combos'''
-            #if combo not in self.lockedCombos:
-                #self.bluff.add(combo)
-                #self.value.discard(combo)
-                #self.call.discard(combo)
-                #self.noAction.discard(combo)
-                #for row in self.made_hands.allRows:
-                    #if combo in row.combos:
-                        #row.bluff.add(combo)
-                        #row.value.discard(combo)
-                        #row.call.discard(combo)
-                        #row.noAction.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #row2.bluff.add(combo)
-                                #row2.value.discard(combo)
-                                #row2.call.discard(combo)
-                                #row2.noAction.discard(combo)
-                #for row in self.drawing_hands.allRows:
-                    #if combo in row.combos:
-                        #row.bluff.add(combo)
-                        #row.value.discard(combo)
-                        #row.call.discard(combo)
-                        #row.noAction.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #row2.bluff.add(combo)
-                                #row2.value.discard(combo)
-                                #row2.call.discard(combo)
-                                #row2.noAction.discard(combo)
-        
-        #for combo in updatePack.call:
-            #'''Call Combos'''
-            #if combo not in self.lockedCombos:
-                #self.call.add(combo)
-                #self.value.discard(combo)
-                #self.bluff.discard(combo)
-                #self.noAction.discard(combo)
-                #for row in self.made_hands.allRows:
-                    #if combo in row.combos:
-                        #if combo not in row.call:
-                            #row.call.add(combo)
-                        #row.value.discard(combo)
-                        #row.bluff.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #if combo not in row2.call:
-                                    #row2.call.add(combo)
-                                #row2.value.discard(combo)
-                                #row2.bluff.discard(combo)
-                #for row in self.drawing_hands.allRows:
-                    #if combo in row.combos:
-                        #if combo not in row.call:
-                            #row.call.add(combo)
-                        #row.value.discard(combo)
-                        #row.bluff.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #if combo not in row2.call:
-                                    #row2.call.add(combo)
-                                #row2.value.discard(combo)
-                                #row2.bluff.discard(combo)
-        
-        #for combo in updatePack.noAction:
-            #'''noAction combos'''
-            #if combo not in self.lockedCombos:
-                #self.noAction.add(combo)
-                #self.value.discard(combo)
-                #self.bluff.discard(combo)
-                #self.call.discard(combo)
-                #for row in self.made_hands.allRows:
-                    #if combo in row.combos:
-                        #if combo not in row.noAction:
-                            #row.noAction.add(combo)
-                        #row.value.discard(combo)
-                        #row.bluff.discard(combo)
-                        #row.call.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #if combo not in row2.noAction:
-                                    #row2.noAction.add(combo)
-                                #row2.value.discard(combo)
-                                #row2.bluff.discard(combo)
-                                #row2.call.discard(combo)
-                #for row in self.drawing_hands.allRows:
-                    #if combo in row.combos:
-                        #if combo not in row.noAction:
-                            #row.noAction.add(combo)
-                        #row.value.discard(combo)
-                        #row.bluff.discard(combo)
-                        #row.call.discard(combo)
-                        #for row2 in row.secondary_StatsRows:
-                            #if combo in row2.combos:
-                                #if combo not in row2.noAction:
-                                    #row2.noAction.add(combo)
-                                #row2.value.discard(combo)
-                                #row2.bluff.discard(combo)
-                                #row2.call.discard(combo)
-        
         for combo in updatePack.value:
             '''Value combos'''
             if combo not in self.lockedCombos:
@@ -1585,8 +1453,6 @@ class RangeStatsMain(QtWidgets.QWidget):
                 self.value.discard(combo)
                 self.bluff.discard(combo)
                 self.call.discard(combo)
-                
-        ### LEFT OFF HERE.  TEST THIS. ###
         
         self.setComboActions()
         
@@ -3463,11 +3329,6 @@ class ComboWindow(QtWidgets.QWidget):
     closeSignal = QtCore.pyqtSignal(object)
     updateSignal = QtCore.pyqtSignal(object)
     
-    #sendLockedCombos = QtCore.pyqtSignal(set)
-    #sendUnlockedCombos = QtCore.pyqtSignal(set)
-    #sendComboActions = QtCore.pyqtSignal(list)
-    '''list is [valueSet, bluffSet, callSet, noActionSet]'''
-    
     def __init__(self, position, updatePack):
         
         super().__init__()
@@ -3818,7 +3679,6 @@ class ComboRow(QtWidgets.QWidget):
     sendLocked = QtCore.pyqtSignal(object)
     sendUnlocked = QtCore.pyqtSignal(object)
     sendCombo = QtCore.pyqtSignal(list)
-    #self.sendCombo.emit([[], [], [], []])
     '''list is [[value], [bluff], [call], [noAction]].  The action for the Combo object
     will be indicated by the index it is in.  The other indices need to be empty lists.'''
     
@@ -4029,7 +3889,7 @@ class HandReplayer(QtWidgets.QWidget):
         super().__init__()
         
         x, y = 1593, 1017  # pixel dimensions of window
-        scale = 1  # scales the above pixel dimensions
+        scale = .4  # scales the above pixel dimensions
         
         scaled_width = round(scale * x, 0)
         scaled_height = round(scale * y, 0)
@@ -4041,7 +3901,7 @@ class HandReplayer(QtWidgets.QWidget):
         self.table_png.setPixmap(background)
         self.table_png.move(0, 0)
         
-        self.test_player = PlayerSetUp('BTN')
+        self.test_player = PlayerSetUp('BTN', True)
         self.test_player.setParent(self)
         self.test_player.move(50, 50)
         
@@ -4052,56 +3912,102 @@ class PlayerSetUp(QtWidgets.QWidget):
     '''One Player at the HandReplayer table.  Where the user inputs info
     about the player.'''
     
-    def __init__(self, position):
+    extendSignal = QtCore.pyqtSignal(list)
+    collapseSignal = QtCore.pyqtSignal(list)
+    
+    def __init__(self, position, extUp = False):
         super().__init__()
         '''position parameter is a string'''
         
-        width, height = 100, 100 # width and height of widget
+        self.startWidth, self.startHeight = 90, 100 # Starting (collapsed) width and height of widget
+        self.extWidth, self.extHeight = 150, 150 # Extended width and height of widget
         margin = 3  # gap between edge and edges of internal widgets
+        self.extendUp = extUp
         
         layout = QtWidgets.QVBoxLayout()
         
         '''Position label'''
-        posLabel = QtWidgets.QLabel(position)
-        posFont = QtGui.QFont()
-        posFont.setPixelSize(12)
-        posFont.setBold(True)
-        posLabel.setFont(posFont)
-        layout.addWidget(posLabel, Qt.AlignCenter)
+        self.posLabel = QtWidgets.QLabel(position)
+        self.posFont = QtGui.QFont()
+        self.posFont.setPixelSize(12)
+        self.posFont.setBold(True)
+        self.posLabel.setFont(self.posFont)
+        layout.addWidget(self.posLabel, Qt.AlignCenter)
         
         '''Starting Stack lineEdit'''
-        stackText = QtWidgets.QLineEdit()
-        stackText.setPlaceholderText('Starting Stack')
-        stackText.setFixedWidth(width - (margin * 2))
-        layout.addWidget(stackText, Qt.AlignLeft)
+        self.stackText = QtWidgets.QLineEdit()
+        self.stackText.setPlaceholderText('Starting Stack')
+        self.stackText.setFixedWidth(self.startWidth - (margin * 2))
+        layout.addWidget(self.stackText, Qt.AlignLeft)
         
         '''Participant Check Box'''
-        participantCheckBox = QtWidgets.QCheckBox('Participant')
-        participantCheckBox.setMinimumSize(participantCheckBox.sizeHint())
-        layout.addWidget(participantCheckBox, Qt.AlignLeft)
+        self.participantCheckBox = QtWidgets.QCheckBox('Participant')
+        self.participantCheckBox.setMinimumSize(self.participantCheckBox.sizeHint())
+        if not self.extendUp:
+            layout.addWidget(self.participantCheckBox, Qt.AlignLeft)
+        else:
+            layout.insertWidget(0, self.participantCheckBox, 0, Qt.AlignLeft)
+        self.participantCheckBox.hide()
         
         '''Hero Pos Check Box'''
-        heroCheckBox = QtWidgets.QCheckBox("Hero's Position")
-        heroCheckBox.setMinimumSize(heroCheckBox.sizeHint())
-        layout.addWidget(heroCheckBox, Qt.AlignLeft)
+        self.heroCheckBox = QtWidgets.QCheckBox("Hero")
+        self.heroCheckBox.setMinimumSize(self.heroCheckBox.sizeHint())
+        if not self.extendUp:
+            layout.addWidget(self.heroCheckBox, Qt.AlignLeft)
+        else:
+            layout.insertWidget(1, self.heroCheckBox, 0, Qt.AlignLeft)        
+        self.heroCheckBox.hide()
         
         '''Straddle lineEdit'''
-        straddleText = QtWidgets.QLineEdit()
-        straddleText.setPlaceholderText('Straddle/Blind')
-        straddleText.setFixedWidth(width - (margin * 2))
-        layout.addWidget(straddleText)
+        self.straddleText = QtWidgets.QLineEdit()
+        self.straddleText.setPlaceholderText('Straddle/Blind')
+        self.straddleText.setFixedWidth(self.startWidth - (margin * 2))
+        if not self.extendUp:
+            layout.addWidget(self.straddleText, Qt.AlignLeft)
+        else:
+            layout.insertWidget(2, self.straddleText, 0, Qt.AlignLeft)          
+        self.straddleText.hide()
         
         '''Notes Text Box'''
-        notesTextBox = QtWidgets.QTextEdit()
-        notesTextBox.setPlaceholderText('Notes')
-        notesTextBox.setFixedWidth(width - (margin * 2))
-        notesTextBox.setFixedHeight(35)
-        layout.addWidget(notesTextBox)
+        self.notesTextBox = QtWidgets.QTextEdit()
+        self.notesTextBox.setPlaceholderText('Notes')
+        self.notesTextBox.setFixedWidth(150)
+        self.notesTextBox.setFixedHeight(50)
+        if not self.extendUp:
+            layout.addWidget(self.notesTextBox, Qt.AlignLeft)
+        else:
+            layout.insertWidget(3, self.notesTextBox, 0, Qt.AlignLeft)
+        self.notesTextBox.hide()
         
         self.setLayout(layout)
         
         self.setFixedSize(self.sizeHint())
-        print(self.sizeHint())
+    
+    def extend(self):
+        '''Called when widget is moused over'''
+        self.notesTextBox.show()
+        self.heroCheckBox.show()
+        self.participantCheckBox.show()
+        self.straddleText.show()
+        
+        self.setFixedSize(self.sizeHint())
+    
+    def collapse(self):
+        '''Called when mouse leaves widget'''
+        self.notesTextBox.hide()
+        self.heroCheckBox.hide()
+        self.participantCheckBox.hide()
+        self.straddleText.hide()        
+        
+        self.setFixedSize(self.sizeHint())
+        
+    def enterEvent(self, e):
+        self.extend()
+        self.update()
+        
+    def leaveEvent(self, e):
+        self.collapse()
+        self.update()
     
     def paintEvent(self, e):
         
@@ -4113,7 +4019,7 @@ class PlayerSetUp(QtWidgets.QWidget):
         
         '''Hole Cards'''
         
-        '''Border'''
+        '''Border/Background Color'''
         size = self.sizeHint()
         rect = QtCore.QRect(0, 0, size.width(), size.height())
         painter.fillRect(rect, white)
@@ -4178,20 +4084,6 @@ class Combo():
         cardB = card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
         return (cardA, cardB)
-    """
-    def getCardA(self, scale = 1):
-        '''Returns a scaled QPixmap of CardA'''
-        
-        scaled_width = round(scale * 81, 0)
-        scaled_height = round(scale * 117, 0)
-        size = QtCore.QSize(scaled_width, scaled_height)
-        cards = QtGui.QPixmap('cards_sheet_four_colors.png')
-        
-        card_col = 81 * self.cardA[0]
-        card_row = 117 * self.cardA[1]
-        card = cards.copy(card_col + self.cardA[0], card_row + self.cardA[1], 81, 117)
-        
-        return card.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)"""
     
     def getComboRect(self):
         '''
